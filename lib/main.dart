@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() {
   runApp(WeatherApp());
-  
 }
 
 class WeatherApp extends StatelessWidget {
@@ -15,6 +15,10 @@ class WeatherApp extends StatelessWidget {
       title: 'Weather App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        // textTheme: GoogleFonts.nerkoOneTextTheme(),
+        textTheme: GoogleFonts.mograTextTheme(),
+        // textTheme: GoogleFonts.lilitaOneTextTheme(),2
+
       ),
       home: WeatherScreen(),
     );
@@ -28,21 +32,32 @@ class WeatherScreen extends StatefulWidget {
 
 class _WeatherScreenState extends State<WeatherScreen> {
   Map<String, dynamic>? weatherData;
-  String city = "São Paulo"; 
-  String apiKey = ''; 
-  List<String> cities = ["São Paulo", "Concórdia", "Uganda"]; 
+  List<dynamic>? forecastData;
+  String city = "São Paulo";
+  String apiKey = 'ea839722b1afba7a83bbf9779ad74b20';
+  List<String> cities = ["São Paulo", "Concórdia", "Uganda"];
 
   Future<void> fetchWeatherData() async {
-    final url =
+    final weatherUrl =
         'https://api.openweathermap.org/data/2.5/weather?q=$city&appid=$apiKey&units=metric&lang=pt_br';
-    final response = await http.get(Uri.parse(url));
+    final forecastUrl =
+        'https://api.openweathermap.org/data/2.5/forecast?q=$city&appid=$apiKey&units=metric&lang=pt_br';
 
-    if (response.statusCode == 200) {
-      setState(() {
-        weatherData = json.decode(response.body);
-      });
-    } else {
-      print('Falha ao buscar dados de clima');
+    try {
+      final weatherResponse = await http.get(Uri.parse(weatherUrl));
+      final forecastResponse = await http.get(Uri.parse(forecastUrl));
+
+      if (weatherResponse.statusCode == 200 &&
+          forecastResponse.statusCode == 200) {
+        setState(() {
+          weatherData = json.decode(weatherResponse.body);
+          forecastData = json.decode(forecastResponse.body)['list'];
+        });
+      } else {
+        print('Falha ao buscar dados de clima ou previsão');
+      }
+    } catch (e) {
+      print('Erro ao buscar dados: $e');
     }
   }
 
@@ -51,14 +66,14 @@ class _WeatherScreenState extends State<WeatherScreen> {
       city = selectedCity;
     });
     fetchWeatherData();
-    Navigator.pop(context); 
+    Navigator.pop(context);
   }
 
   void addCity(String newCity) {
     setState(() {
       cities.add(newCity);
     });
-    Navigator.pop(context); 
+    Navigator.pop(context);
   }
 
   void deleteCity(String cityToDelete) {
@@ -78,14 +93,14 @@ class _WeatherScreenState extends State<WeatherScreen> {
     return Scaffold(
       backgroundColor: Colors.blue,
       appBar: AppBar(
-        // title: Text('$city - ${weatherData?['sys']['country'] ?? ''}'),
+        title: Text(city),
         backgroundColor: Colors.blue,
-        // actions: [
-        //   IconButton(
-        //     icon: Icon(Icons.refresh),
-        //     onPressed: fetchWeatherData,
-        //   ),
-        // ],
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: fetchWeatherData,
+          ),
+        ],
       ),
       drawer: Drawer(
         child: Column(
@@ -108,9 +123,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     title: Text(city),
                     trailing: IconButton(
                       icon: Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        deleteCity(city);
-                      },
+                      onPressed: () => deleteCity(city),
                     ),
                     onTap: () => selectCity(city),
                   );
@@ -121,22 +134,20 @@ class _WeatherScreenState extends State<WeatherScreen> {
               padding: const EdgeInsets.all(8.0),
               child: ElevatedButton(
                 child: Text("Adicionar Cidade"),
-                onPressed: () {
-                  _showAddCityDialog();
-                },
+                onPressed: () => _showAddCityDialog(),
               ),
             ),
           ],
         ),
       ),
-      body: weatherData == null
+      body: weatherData == null || forecastData == null
           ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // icone e temperatra
+                  // Informações atuais
                   Column(
                     children: [
                       Text(
@@ -162,7 +173,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   ),
                   SizedBox(height: 20),
 
-                  // detalhes do local
+                  // Localização
                   Text(
                     '${city}, ${weatherData!['sys']['country']}',
                     style: TextStyle(color: Colors.white, fontSize: 18),
@@ -173,59 +184,58 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   ),
                   SizedBox(height: 20),
 
-                  // linha de previsao
+                  // Previsão dos próximos dias
                   Container(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
                       color: Colors.blue[700],
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: List.generate(6, (index) {
-                        return Column(
-                          children: [
-                            Text(
-                              '${9 + index * 3}:00',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            Text(
-                              '${18 - index}°C',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        );
-                      }),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Previsão para os próximos dias',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18),
+                        ),
+                        SizedBox(height: 10),
+                        Table(
+                          border: TableBorder.all(color: Colors.white),
+                          children: _buildForecastRows(),
+                        ),
+                      ],
                     ),
                   ),
                   SizedBox(height: 20),
 
-                  //  detalhes
+                  // Informações extras
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       InfoCard(
-                        label: 'vento',
+                        label: 'Vento',
                         value: '${weatherData!['wind']['speed']} km/h',
                       ),
                       InfoCard(
-                        label: 'umidade',
+                        label: 'Umidade',
                         value: '${weatherData!['main']['humidity']}%',
                       ),
                       InfoCard(
-                        label: 'sensação térmica',
+                        label: 'Sensação térmica',
                         value: '${weatherData!['main']['feels_like']}°C',
                       ),
                     ],
                   ),
                   SizedBox(height: 20),
 
-                  // nascer e por
+                  // Nascer e pôr do sol
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       SunInfoCard(
-                        label: 'nascer do sol',
+                        label: 'Nascer do sol',
                         value: DateTime.fromMillisecondsSinceEpoch(
                                 weatherData!['sys']['sunrise'] * 1000)
                             .toLocal()
@@ -233,7 +243,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                             .substring(11, 16),
                       ),
                       SunInfoCard(
-                        label: 'pôr do sol',
+                        label: 'Pôr do sol',
                         value: DateTime.fromMillisecondsSinceEpoch(
                                 weatherData!['sys']['sunset'] * 1000)
                             .toLocal()
@@ -242,10 +252,67 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 20),
                 ],
               ),
             ),
+    );
+  }
+
+  List<TableRow> _buildForecastRows() {
+    final days = <TableRow>[
+      TableRow(
+        children: [
+          _buildTableCell('Dia'),
+          _buildTableCell('Min'),
+          _buildTableCell('Max'),
+        ],
+      ),
+    ];
+
+    final dailyData = forecastData!.where((data) {
+      final date = DateTime.parse(data['dt_txt']);
+      return date.hour == 12; 
+    }).take(5); // 5 dias
+
+    for (var data in dailyData) {
+      final date = DateTime.parse(data['dt_txt']);
+      days.add(
+        TableRow(
+          children: [
+            _buildTableCell(
+                '${date.day}/${date.month} (${_getWeekday(date.weekday)})'),
+            _buildTableCell('${data['main']['temp_min'].toStringAsFixed(1)}°C'),
+            _buildTableCell('${data['main']['temp_max'].toStringAsFixed(1)}°C'),
+          ],
+        ),
+      );
+    }
+
+    return days;
+  }
+
+  String _getWeekday(int weekday) {
+    const weekdays = [
+      'Domingo',
+      'Segunda',
+      'Terça',
+      'Quarta',
+      'Quinta',
+      'Sexta',
+      'Sábado'
+    ];
+    return weekdays[weekday - 1];
+  }
+
+  Widget _buildTableCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Center(
+        child: Text(
+          text,
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
     );
   }
 
@@ -275,7 +342,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 if (newCity.isNotEmpty) {
                   addCity(newCity);
                 }
-                Navigator.pop(context);
               },
             ),
           ],
@@ -285,7 +351,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
   }
 }
 
-// Wvento, umidade
 class InfoCard extends StatelessWidget {
   final String label;
   final String value;
@@ -294,24 +359,23 @@ class InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue[700],
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        children: [
-          Text(label, style: TextStyle(color: Colors.white)),
-          SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 18, color: Colors.white)),
-        ],
-      ),
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        SizedBox(height: 5),
+        Text(
+          label,
+          style: TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+      ],
     );
   }
 }
 
-// nascer e por
 class SunInfoCard extends StatelessWidget {
   final String label;
   final String value;
@@ -320,19 +384,19 @@ class SunInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue[700],
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        children: [
-          Text(label, style: TextStyle(color: Colors.white)),
-          SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 18, color: Colors.white)),
-        ],
-      ),
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        SizedBox(height: 5),
+        Text(
+          label,
+          style: TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+      ],
     );
   }
 }
