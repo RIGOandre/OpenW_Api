@@ -15,10 +15,7 @@ class WeatherApp extends StatelessWidget {
       title: 'Weather App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        // textTheme: GoogleFonts.nerkoOneTextTheme(),
-        textTheme: GoogleFonts.mograTextTheme(),
-        // textTheme: GoogleFonts.lilitaOneTextTheme(),2
-
+        textTheme: GoogleFonts.racingSansOneTextTheme(),
       ),
       home: WeatherScreen(),
     );
@@ -34,7 +31,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
   Map<String, dynamic>? weatherData;
   List<dynamic>? forecastData;
   String city = "São Paulo";
-  String apiKey = 'ea839722b1afba7a83bbf9779ad74b20';
+  String apiKey = '';
   List<String> cities = ["São Paulo", "Concórdia", "Uganda"];
 
   Future<void> fetchWeatherData() async {
@@ -88,6 +85,32 @@ class _WeatherScreenState extends State<WeatherScreen> {
     fetchWeatherData();
   }
 
+  // obter o GIF com base no código do clima
+  String getWeatherGif(String weatherCode) {
+    const gifMap = {
+      "01d": "assets/images/sunny.gif", // Céu limpo durante o dia
+      "01n": "assets/images/clear_night.gif", // Céu limpo à noite
+      "02d": "assets/images/cloudy.gif", // Poucas nuvens durante o dia
+      "02n": "assets/images/cloudy.gif", // Poucas nuvens à noite
+      "03d": "assets/images/cloudy.gif", // Nublado
+      "03n": "assets/images/cloudy.gif",
+      "04d": "assets/images/overcast.gif", // Nublado pesado
+      "04n": "assets/images/overcast.gif",  
+      "09d": "assets/images/rain_d.gif", // Chuva
+      "09n": "assets/images/rain_n.gif",
+      "10d": "assets/images/heavy_rain.gif", // Chuva intensa
+      "10n": "assets/images/heavy_rain.gif", // rain_n
+      "11d": "assets/images/thunderstorm.gif", // Tempestade
+      "11n": "assets/images/thunderstorm.gif",
+      "13d": "assets/images/snow_d.gif", // Neve
+      "13n": "assets/images/snow_n.gif",
+      "50d": "assets/images/fog.gif", // Neblina diminuir tamanho 
+      "50n": "assets/images/fog.gif",
+    };
+
+    return gifMap[weatherCode] ?? "assets/images/default.gif";
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -102,10 +125,11 @@ class _WeatherScreenState extends State<WeatherScreen> {
           ),
         ],
       ),
+
       drawer: Drawer(
         child: Column(
           children: [
-            DrawerHeader(
+            const DrawerHeader(
               decoration: BoxDecoration(color: Colors.blue),
               child: Center(
                 child: Text(
@@ -152,7 +176,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     children: [
                       Text(
                         '${weatherData!['main']['temp']}°C',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 32,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -160,14 +184,16 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       ),
                       Text(
                         '${weatherData!['weather'][0]['description']}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 24,
                           color: Colors.white,
                         ),
                       ),
-                      Image.network(
-                        'https://openweathermap.org/img/wn/${weatherData!['weather'][0]['icon']}@2x.png',
-                        scale: 0.9,
+                      Image.asset(
+                        getWeatherGif(weatherData!['weather'][0]['icon']),
+                        height: 100,
+                        width: 100,
+                        fit: BoxFit.cover,
                       ),
                     ],
                   ),
@@ -176,7 +202,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   // Localização
                   Text(
                     '${city}, ${weatherData!['sys']['country']}',
-                    style: TextStyle(color: Colors.white, fontSize: 18),
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
                   ),
                   Text(
                     'Latitude: ${weatherData!['coord']['lat']} | Longitude: ${weatherData!['coord']['lon']}',
@@ -193,7 +219,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     ),
                     child: Column(
                       children: [
-                        Text(
+                        const Text(
                           'Previsão para os próximos dias',
                           style: TextStyle(
                               color: Colors.white,
@@ -271,8 +297,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
     final dailyData = forecastData!.where((data) {
       final date = DateTime.parse(data['dt_txt']);
-      return date.hour == 12; 
-    }).take(5); // 5 dias
+      return date.hour == 12;
+    }).take(5);
 
     for (var data in dailyData) {
       final date = DateTime.parse(data['dt_txt']);
@@ -287,7 +313,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
         ),
       );
     }
-
     return days;
   }
 
@@ -317,7 +342,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
   }
 
   void _showAddCityDialog() {
-    String newCity = "";
+    String newCity = "Lindóia dos Montes e Vales";
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -363,7 +388,7 @@ class InfoCard extends StatelessWidget {
       children: [
         Text(
           value,
-          style: TextStyle(
+          style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         SizedBox(height: 5),
@@ -388,8 +413,10 @@ class SunInfoCard extends StatelessWidget {
       children: [
         Text(
           value,
-          style: TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18),
         ),
         SizedBox(height: 5),
         Text(
