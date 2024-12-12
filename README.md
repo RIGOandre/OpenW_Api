@@ -25,7 +25,7 @@
 - **Dados meteorológicos atualizados**: Exibe a temperatura, descrição do clima, e ícones animados de acordo com a condição climática.
 - **Previsão do tempo**: Visualize a previsão de clima para os próximos dias.
 - **Gerenciamento de cidades**: 
-  - Adicione novas cidades e seus códigos de país.
+  - Adicione novas cidades.
   - Exclua cidades da sua lista personalizada.
   - Alterne rapidamente entre as cidades cadastradas.
 - **Horários de nascer e pôr do sol**: Informações precisas com base na localização selecionada.
@@ -49,5 +49,3 @@
 
 ---
 
-<p align="center">
-  🚀 <strong>Weather Explorer foi cria
