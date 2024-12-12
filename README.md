@@ -49,3 +49,6 @@
 
 ---
 
+<p align="center">
+   <strong>Weather Explorer foi criado para quem busca informações meteorológicas de forma prática e elegante, tudo na palma da sua mão! 🌦️📲</strong> 
+</p>
