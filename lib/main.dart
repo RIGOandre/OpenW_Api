@@ -25,6 +25,7 @@ class WeatherApp extends StatelessWidget {
 class WeatherScreen extends StatefulWidget {
   @override
   _WeatherScreenState createState() => _WeatherScreenState();
+  
 }
 
 class _WeatherScreenState extends State<WeatherScreen> {
@@ -33,7 +34,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
   String city = "São Paulo";
   String apiKey = '';
   List<String> cities = ["São Paulo", "Concórdia"];
-  //juneau
 
   Future<void> fetchWeatherData() async {
     final weatherUrl =
@@ -86,7 +86,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
     fetchWeatherData();
   }
 
-
   String getWeatherGif(String weatherCode) {
     const gifMap = {
       "01d": "assets/images/sunny.gif", // Céu limpo durante o dia
@@ -96,7 +95,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
       "03d": "assets/images/cloudy.gif", // Nublado
       "03n": "assets/images/cloudy.gif",
       "04d": "assets/images/overcast.gif", // Nublado pesado
-      "04n": "assets/images/overcast.gif",  
+      "04n": "assets/images/overcast.gif",
       "09d": "assets/images/rain_d.gif", // Chuva
       "09n": "assets/images/rain_n.gif",
       "10d": "assets/images/rain_d.gif", // Chuva intensa
@@ -105,7 +104,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
       "11n": "assets/images/thunderstorm.gif",
       "13d": "assets/images/snow_d.gif", // Neve
       "13n": "assets/images/snow_n.gif",
-      "50d": "assets/images/fog.gif", // Neblina diminuir tamanho 
+      "50d": "assets/images/fog.gif", // Neblina diminuir tamanho
       "50n": "assets/images/fog.gif",
     };
 
@@ -120,7 +119,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
         title: Text(city),
         backgroundColor: Colors.blue,
       ),
-
       drawer: Drawer(
         child: Column(
           children: [
@@ -278,72 +276,69 @@ class _WeatherScreenState extends State<WeatherScreen> {
     );
   }
 
- List<TableRow> _buildForecastRows() {
-  final days = <TableRow>[
-    TableRow(
-      children: [
-        _buildTableCell('Dia'),
-        _buildTableCell('Mínima'),
-        _buildTableCell('Máxima'),
-        _buildTableCell('Chuva'),
-      ],
-    ),
-  ];
-
-
- final now = DateTime.now(); 
-
-  final dailyData = forecastData!.where((data) {
-    final date = DateTime.parse(data['dt_txt']).toLocal(); 
-    return date.hour == 12 && date.isAfter(now.subtract(Duration(days: 1)));
-  }).take(5); // Limita a 5 dias
-
-  for (var data in dailyData) {
-    final date = DateTime.parse(data['dt_txt']).toLocal();
-    final rainChance = (data['pop'] * 100).toStringAsFixed(0); // chuva %
-
-    days.add(
+  List<TableRow> _buildForecastRows() {
+    final days = <TableRow>[
       TableRow(
         children: [
-          _buildTableCell(
-              '${date.day - 1}/${date.month} (${_getWeekday(date.weekday)})'),
-          _buildTableCell('${data['main']['temp_min'].toStringAsFixed(1)}°C'),
-          _buildTableCell('${data['main']['temp_max'].toStringAsFixed(1)}°C'),
-          _buildTableCell('$rainChance%'),
+          _buildTableCell('Dia'),
+          _buildTableCell('Mínima'),
+          _buildTableCell('Máxima'),
+          _buildTableCell('Chuva'),
         ],
+      ),
+    ];
+
+    final now = DateTime.now();
+
+    final dailyData = forecastData!.where((data) {
+      final date = DateTime.parse(data['dt_txt']).toLocal();
+      return date.hour == 12 && date.isAfter(now.subtract(Duration(days: 1)));
+    }).take(5); // Limita a 5 dias
+
+    for (var data in dailyData) {
+      final date = DateTime.parse(data['dt_txt']).toLocal();
+      final rainChance = (data['pop'] * 100).toStringAsFixed(0); // chuva %
+
+      days.add(
+        TableRow(
+          children: [
+            _buildTableCell(
+                '${date.day - 1}/${date.month} (${_getWeekday(date.weekday)})'),
+            _buildTableCell('${data['main']['temp_min'].toStringAsFixed(1)}°C'),
+            _buildTableCell('${data['main']['temp_max'].toStringAsFixed(1)}°C'),
+            _buildTableCell('$rainChance%'),
+          ],
+        ),
+      );
+    }
+
+    return days;
+  }
+
+  String _getWeekday(int weekday) {
+    const weekdays = [
+      'Domingo',
+      'Segunda',
+      'Terça',
+      'Quarta',
+      'Quinta',
+      'Sexta',
+      'Sábado'
+    ];
+    return weekdays[weekday - 1];
+  }
+
+  Widget _buildTableCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Center(
+        child: Text(
+          text,
+          style: TextStyle(color: Colors.white, fontSize: 10),
+        ),
       ),
     );
   }
-
-  return days;
-}
-
-String _getWeekday(int weekday) {
-  const weekdays = [
-    'Domingo',
-    'Segunda',
-    'Terça',
-    'Quarta',
-    'Quinta',
-    'Sexta',
-    'Sábado'
-  ];
-  return weekdays[weekday - 1];
-}
-
-Widget _buildTableCell(String text) {
-  return Padding(
-    padding: const EdgeInsets.all(8.0),
-    child: Center(
-      child: Text(
-
-        text,
-        style: TextStyle(color: Colors.white, fontSize: 10),
-      ),
-    ),
-  );
-}
-
 
   void _showAddCityDialog() {
     String newCity = "Lindóia dos Montes e Vales";
