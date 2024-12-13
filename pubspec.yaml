@@ -32,6 +32,8 @@ dependencies:
     sdk: flutter
   http: ^1.2.2
   google_fonts: ^4.0.5
+  sqflite: ^2.0.2
+  path: ^1.8.3
 
 
 
@@ -66,6 +68,7 @@ flutter:
     - assets\images\clear_night.gif
     - assets\images\cloudy_night.gif
     - assets\images\cloudy.gif
+    - assets\images\cloudys.gif
     - assets\images\fog.gif
     - assets\images\heavy_rain.gif
     - assets\images\overcast.gif
