@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
+import 'dart:io';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -8,8 +10,21 @@ class DatabaseHelper {
   DatabaseHelper._internal();
 
   Database? _database;
+  static bool _initialized = false;
+
+  static void _initializeDatabaseFactory() {
+    if (!_initialized) {
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        // Inicializa o sqflite_ffi para plataformas desktop
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
+      }
+      _initialized = true;
+    }
+  }
 
   Future<Database> get database async {
+    _initializeDatabaseFactory();
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;

@@ -10,7 +10,7 @@ import 'widgets/info_cards.dart';
 import 'widgets/forecast_widget.dart';
 import 'widgets/custom_drawer.dart';
 import 'utils/weather_assets.dart';
-import 'utils/formatters.dart' as utils;
+import 'utils/formatters.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -426,7 +426,7 @@ class _WeatherScreenState extends State<WeatherScreen>
       child: Column(
         children: [
           Text(
-            utils.TemperatureUtils.formatTemperature(weather.temperature),
+            TemperatureUtils.formatTemperature(weather.temperature),
             style: const TextStyle(
               fontSize: 64,
               color: Colors.white,
@@ -436,7 +436,7 @@ class _WeatherScreenState extends State<WeatherScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            utils.WeatherUtils.capitalizeFirst(weather.description),
+            WeatherUtils.capitalizeFirst(weather.description),
             style: const TextStyle(
               fontSize: 20,
               color: Colors.white,
@@ -529,25 +529,25 @@ class _WeatherScreenState extends State<WeatherScreen>
       children: [
         InfoCard(
           label: 'Sensação térmica',
-          value: utils.TemperatureUtils.formatTemperature(weather.feelsLike),
+          value: TemperatureUtils.formatTemperature(weather.feelsLike),
           icon: Icons.thermostat,
           iconColor: Colors.orange[300],
         ),
         InfoCard(
           label: 'Umidade',
-          value: utils.WeatherUtils.formatHumidity(weather.humidity),
+          value: WeatherUtils.formatHumidity(weather.humidity),
           icon: Icons.water_drop,
           iconColor: Colors.blue[300],
         ),
         InfoCard(
           label: 'Vento',
-          value: utils.WeatherUtils.formatWindSpeed(weather.windSpeed),
+          value: WeatherUtils.formatWindSpeed(weather.windSpeed),
           icon: Icons.air,
           iconColor: Colors.grey[300],
         ),
         InfoCard(
           label: 'Pressão',
-          value: utils.WeatherUtils.formatPressure(weather.pressure),
+          value: WeatherUtils.formatPressure(weather.pressure),
           icon: Icons.compress,
           iconColor: Colors.purple[300],
         ),
@@ -561,7 +561,7 @@ class _WeatherScreenState extends State<WeatherScreen>
         Expanded(
           child: SunInfoCard(
             label: 'Nascer do sol',
-            value: utils.DateUtils.formatTime(weather.sunrise),
+            value: WeatherDateUtils.formatTime(weather.sunrise),
             icon: Icons.wb_sunny,
           ),
         ),
@@ -569,7 +569,7 @@ class _WeatherScreenState extends State<WeatherScreen>
         Expanded(
           child: SunInfoCard(
             label: 'Pôr do sol',
-            value: utils.DateUtils.formatTime(weather.sunset),
+            value: WeatherDateUtils.formatTime(weather.sunset),
             icon: Icons.wb_twilight,
           ),
         ),

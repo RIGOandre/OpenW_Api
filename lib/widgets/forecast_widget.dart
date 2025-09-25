@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/weather_model.dart';
-import '../utils/formatters.dart' as utils;
+import '../utils/formatters.dart';
 import '../utils/weather_assets.dart';
 
 class ForecastWidget extends StatelessWidget {
@@ -41,12 +41,14 @@ class ForecastWidget extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              Text(
-                'Previsão para os próximos dias',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+              Expanded(
+                child: Text(
+                  'Previsão para os próximos dias',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ],
@@ -79,7 +81,7 @@ class ForecastWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      utils.DateUtils.getRelativeDay(dayForecast.dateTime),
+                      WeatherDateUtils.getRelativeDay(dayForecast.dateTime),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -87,7 +89,7 @@ class ForecastWidget extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      utils.DateUtils.formatDate(dayForecast.dateTime),
+                      WeatherDateUtils.formatDate(dayForecast.dateTime),
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7),
                         fontSize: 12,
@@ -121,63 +123,70 @@ class ForecastWidget extends StatelessWidget {
               
               // Temperaturas
               Expanded(
+                flex: 2,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Column(
-                      children: [
-                        Text(
-                          utils.TemperatureUtils.formatTemperature(dayForecast.tempMin),
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 13,
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            TemperatureUtils.formatTemperature(dayForecast.tempMin),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Min',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                            fontSize: 10,
+                          Text(
+                            'Min',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 9,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Column(
-                      children: [
-                        Text(
-                          utils.TemperatureUtils.formatTemperature(dayForecast.tempMax),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            TemperatureUtils.formatTemperature(dayForecast.tempMax),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Max',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                            fontSize: 10,
+                          Text(
+                            'Max',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 9,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Column(
-                      children: [
-                        Text(
-                          utils.WeatherUtils.formatRainChance(dayForecast.rainChance),
-                          style: TextStyle(
-                            color: Colors.blue[200],
-                            fontSize: 13,
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            WeatherUtils.formatRainChance(dayForecast.rainChance),
+                            style: TextStyle(
+                              color: Colors.blue[200],
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Chuva',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                            fontSize: 10,
+                          Text(
+                            'Chuva',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 9,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
