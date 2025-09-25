@@ -41,3 +41,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# API Keys and sensitive configuration
+.env
+.env.local
+.env.production
+.env.development
+config.json
+secrets.json
+api_keys.dart
+**/config/secrets.*
