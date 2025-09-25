@@ -191,8 +191,6 @@ static const String _apiKey = 'SUA_CHAVE_AQUI'; // ← Configure aqui
 - ✅ Use `.env` files para diferentes ambientes (inclusos no .gitignore)
 - ✅ Para Flutter Web/Desktop em produção, considere proxy de servidor
 - ✅ Monitore o uso da sua API key no painel OpenWeatherMap
-- ❌ Nunca exponha API keys em repositórios públicos
-- ❌ Nunca hardcode API keys em builds de produção
 
 ## 🤝 Contribuindo
 
@@ -216,7 +214,7 @@ Este projeto está licenciado sob a **MIT License**.
 
 <div align="center">
 
-**Weather Explorer** - *Sua previsão do tempo, reimaginada!* �
+**Weather Explorer** - *Sua previsão do tempo, reimaginada!* 
 
 Desenvolvido com ❤️ por [RIGOandre](https://github.com/RIGOandre)
 
