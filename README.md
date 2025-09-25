@@ -204,14 +204,6 @@ static const String _apiKey = 'SUA_CHAVE_AQUI'; // ← Configure aqui
 
 Este projeto está licenciado sob a **MIT License**. 
 
-## 🙏 Agradecimentos
-
-- **OpenWeatherMap** - API meteorológica confiável
-- **Google Fonts** - Tipografia moderna  
-- **Flutter Team** - Framework excepcional
-
----
-
 <div align="center">
 
 **Weather Explorer** - *Sua previsão do tempo, reimaginada!* 
