@@ -28,7 +28,7 @@
 - Horários precisos do nascer/pôr do sol
 - Coordenadas geográficas
 
-## �️ Arquitetura e Melhorias Implementadas
+## Arquitetura e Melhorias Implementadas
 
 ### 📦 Estrutura Modular
 ```
