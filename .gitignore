@@ -30,6 +30,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/coverage/
 
 # Symbolication related
 app.*.symbols
@@ -44,9 +45,8 @@ app.*.map.json
 
 # API Keys and sensitive configuration
 .env
-.env.local
-.env.production
-.env.development
+.env.*
+!.env.example
 config.json
 secrets.json
 api_keys.dart
