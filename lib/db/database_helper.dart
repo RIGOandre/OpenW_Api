@@ -321,6 +321,20 @@ class DatabaseHelper {
     }
   }
 
+  /// Repõe as cidades padrão, ignorando as que já estiverem salvas.
+  ///
+  /// O `onCreate` semeia a lista apenas na instalação: quem chega de uma versão
+  /// antiga pelo `_onUpgrade`, ou quem limpa a lista inteira, precisa deste
+  /// caminho de volta.
+  Future<void> seedDefaultCities() async {
+    try {
+      final db = await database;
+      await _seedDefaultCities(db);
+    } catch (error) {
+      throw AppException.database(error);
+    }
+  }
+
   /// Guarda (ou substitui) a resposta da API de uma cidade.
   Future<void> saveWeatherPayload(
     String cityName,
@@ -370,6 +384,22 @@ class DatabaseHelper {
     } catch (error) {
       debugPrint('Falha ao ler o cache do clima: $error');
       return null;
+    }
+  }
+
+  /// Descarta o cache de uma cidade só, usado quando ela sai da lista.
+  Future<void> clearCacheFor(String cityName) async {
+    try {
+      final db = await database;
+      await db.delete(
+        cacheTable,
+        where: 'city_name = ?',
+        whereArgs: <Object?>[cityKey(cityName)],
+      );
+    } catch (error) {
+      // Mesmo critério da gravação: cache é descartável, não vale derrubar a
+      // remoção da cidade por causa dele.
+      debugPrint('Falha ao limpar o cache da cidade: $error');
     }
   }
 
