@@ -4,12 +4,17 @@ import '../utils/formatters.dart';
 import '../utils/weather_assets.dart';
 
 class ForecastWidget extends StatelessWidget {
-  final List<ForecastModel> forecast;
+  final List<DailyForecast> forecast;
+
+  /// Hora atual na cidade consultada. Sem ela os rótulos "Hoje" e "Amanhã"
+  /// caem no relógio do aparelho, que pode estar em outro fuso.
+  final DateTime? reference;
 
   const ForecastWidget({
-    Key? key,
+    super.key,
     required this.forecast,
-  }) : super(key: key);
+    this.reference,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -61,155 +66,158 @@ class ForecastWidget extends StatelessWidget {
   }
 
   Widget _buildForecastList() {
-    final dailyForecast = _getDailyForecast();
-    
+    if (forecast.isEmpty) {
+      return Text(
+        'Previsão indisponível para esta cidade',
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.7),
+          fontSize: 14,
+        ),
+      );
+    }
+
     return Column(
-      children: dailyForecast.map((dayForecast) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              // Data
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      WeatherDateUtils.getRelativeDay(dayForecast.dateTime),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      WeatherDateUtils.formatDate(dayForecast.dateTime),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Ícone do tempo
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Image.asset(
-                  WeatherAssets.getWeatherGif(dayForecast.icon),
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.wb_sunny,
-                      color: Colors.orange[300],
-                      size: 24,
-                    );
-                  },
-                ),
-              ),
-              
-              const SizedBox(width: 12),
-              
-              // Temperaturas
-              Expanded(
-                flex: 2,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            TemperatureUtils.formatTemperature(dayForecast.tempMin),
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            'Min',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 9,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            TemperatureUtils.formatTemperature(dayForecast.tempMax),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            'Max',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 9,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            WeatherUtils.formatRainChance(dayForecast.rainChance),
-                            style: TextStyle(
-                              color: Colors.blue[200],
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            'Chuva',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 9,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+      children: forecast.map(_buildDayRow).toList(),
     );
   }
 
-  List<ForecastModel> _getDailyForecast() {
-    final now = DateTime.now();
-    final dailyData = <ForecastModel>[];
-    
-    // Filtra previsões para meio-dia dos próximos 5 dias
-    final filteredData = forecast.where((data) {
-      return data.dateTime.hour == 12 && 
-             data.dateTime.isAfter(now.subtract(const Duration(days: 1)));
-    }).take(5);
+  Widget _buildDayRow(DailyForecast dayForecast) {
+    final description = WeatherUtils.capitalizeFirst(dayForecast.description);
 
-    dailyData.addAll(filteredData);
-    
-    return dailyData;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          // Data
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  WeatherDateUtils.getRelativeDay(
+                    dayForecast.date,
+                    reference: reference,
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  WeatherDateUtils.formatDate(dayForecast.date),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // Ícone do tempo
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Image.asset(
+              // forCondition troca a animação por chuva forte quando o código
+              // da condição indica temporal, o que o ícone sozinho não diz.
+              WeatherAssets.forCondition(
+                dayForecast.icon,
+                dayForecast.conditionId,
+              ),
+              fit: BoxFit.contain,
+              semanticLabel: description.isEmpty ? null : description,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  Icons.wb_sunny,
+                  color: Colors.orange[300],
+                  size: 24,
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Temperaturas
+          Expanded(
+            flex: 2,
+            child: Row(
+              children: [
+                _buildValueCell(
+                  value: TemperatureUtils.formatTemperature(dayForecast.tempMin),
+                  label: 'Min',
+                  valueStyle: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 12,
+                  ),
+                ),
+                _buildValueCell(
+                  value: TemperatureUtils.formatTemperature(dayForecast.tempMax),
+                  label: 'Max',
+                  valueStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                _buildValueCell(
+                  value: WeatherUtils.formatRainChance(dayForecast.rainChance),
+                  label: 'Chuva',
+                  valueStyle: TextStyle(
+                    color: Colors.blue[200],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValueCell({
+    required String value,
+    required String label,
+    required TextStyle valueStyle,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          // A célula fica com pouco mais de 25dp em tela estreita e "100%" não
+          // tem onde quebrar: sem o scaleDown o texto sairia recortado.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: valueStyle,
+              maxLines: 1,
+              softWrap: false,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.75),
+              fontSize: 11,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
   }
 }

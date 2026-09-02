@@ -1,41 +1,39 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class CustomDrawer extends StatelessWidget {
   final List<String> cities;
   final String currentCity;
-  final Function(String) onCitySelected;
-  final Function(String) onCityDeleted;
+  final ValueChanged<String> onCitySelected;
+  final ValueChanged<String> onCityDeleted;
   final VoidCallback onAddCity;
 
   const CustomDrawer({
-    Key? key,
+    super.key,
     required this.cities,
     required this.currentCity,
     required this.onCitySelected,
     required this.onCityDeleted,
     required this.onAddCity,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
       child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue[800]!,
-              Colors.blue[600]!,
+        decoration: BoxDecoration(gradient: AppTheme.drawer),
+        // O Drawer não aplica SafeArea nos filhos: sem isso o botão de adicionar
+        // fica sob a barra de gestos. O topo segue livre para o gradiente do
+        // cabeçalho continuar subindo atrás da barra de status.
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              _buildDrawerHeader(),
+              Expanded(child: _buildCityList()),
+              _buildAddCityButton(context),
             ],
           ),
-        ),
-        child: Column(
-          children: [
-            _buildDrawerHeader(),
-            Expanded(child: _buildCityList()),
-            _buildAddCityButton(context),
-          ],
         ),
       ),
     );
@@ -43,18 +41,12 @@ class CustomDrawer extends StatelessWidget {
 
   Widget _buildDrawerHeader() {
     return Container(
-      height: 180,
+      // Altura mínima em vez de fixa: com a fonte do sistema ampliada o
+      // cabeçalho cresce em vez de estourar.
+      constraints: const BoxConstraints(minHeight: 180),
       width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.blue[900]!,
-            Colors.blue[700]!,
-          ],
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(gradient: AppTheme.drawerHeader),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -86,6 +78,7 @@ class CustomDrawer extends StatelessWidget {
               color: Colors.white.withOpacity(0.8),
               fontSize: 14,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -95,10 +88,10 @@ class CustomDrawer extends StatelessWidget {
   Widget _buildCityList() {
     if (cities.isEmpty) {
       return Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.location_off,
@@ -118,7 +111,9 @@ class CustomDrawer extends StatelessWidget {
               Text(
                 'Adicione uma cidade para começar',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  // 0.6 sobre o azul do menu fica com contraste baixo demais
+                  // para texto secundário.
+                  color: Colors.white.withOpacity(0.8),
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -148,6 +143,7 @@ class CustomDrawer extends StatelessWidget {
                 : null,
           ),
           child: ListTile(
+            selected: isSelected,
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -181,6 +177,9 @@ class CustomDrawer extends StatelessWidget {
                 : null,
             trailing: cities.length > 1
                 ? IconButton(
+                    // O tooltip também vira rótulo para o leitor de tela, que
+                    // sem ele anuncia só "botão" em todas as linhas.
+                    tooltip: 'Remover $city',
                     icon: Icon(
                       Icons.delete_outline,
                       color: Colors.red[300],
@@ -189,7 +188,11 @@ class CustomDrawer extends StatelessWidget {
                     onPressed: () => _showDeleteDialog(context, city),
                   )
                 : null,
-            onTap: isSelected ? null : () => onCitySelected(city),
+            // Tocar na cidade já selecionada fecha o menu, que é o que o gesto
+            // sugere; nas demais quem fecha é quem trata onCitySelected.
+            onTap: isSelected
+                ? () => Navigator.pop(context)
+                : () => onCitySelected(city),
           ),
         );
       },
