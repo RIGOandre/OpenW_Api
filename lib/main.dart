@@ -490,7 +490,7 @@ class _WeatherScreenState extends State<WeatherScreen>
           children: [
             Icon(
               snapshot.isStale ? Icons.cloud_off : Icons.history,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               size: 18,
             ),
             const SizedBox(width: 8),
@@ -500,7 +500,7 @@ class _WeatherScreenState extends State<WeatherScreen>
                     ? 'Sem conexão. Último clima salvo $savedAt'
                     : 'Dados salvos no aparelho $savedAt',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
+                  color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 13,
                 ),
               ),
@@ -520,15 +520,15 @@ class _WeatherScreenState extends State<WeatherScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.white.withOpacity(0.2),
-            Colors.white.withOpacity(0.1),
+            Colors.white.withValues(alpha: 0.2),
+            Colors.white.withValues(alpha: 0.1),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withOpacity(0.3),
+          color: Colors.white.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -561,7 +561,7 @@ class _WeatherScreenState extends State<WeatherScreen>
               height: 120,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
               child: Image.asset(
                 // `forCondition` troca a chuva comum pela animação de temporal
@@ -596,7 +596,7 @@ class _WeatherScreenState extends State<WeatherScreen>
             children: [
               Icon(
                 Icons.location_on,
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -618,7 +618,7 @@ class _WeatherScreenState extends State<WeatherScreen>
           Text(
             WeatherUtils.formatCoordinates(weather.latitude, weather.longitude),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 14,
             ),
           ),
@@ -627,7 +627,7 @@ class _WeatherScreenState extends State<WeatherScreen>
             'Medição das ${WeatherDateUtils.formatTime(weather.observedAt)}, '
             'hora da cidade',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 12,
             ),
             textAlign: TextAlign.center,

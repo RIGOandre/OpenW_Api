@@ -53,7 +53,7 @@ class CustomDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(50),
             ),
             child: const Icon(
@@ -75,7 +75,7 @@ class CustomDrawer extends StatelessWidget {
           Text(
             'Selecione ou gerencie suas cidades',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -96,13 +96,13 @@ class CustomDrawer extends StatelessWidget {
               Icon(
                 Icons.location_off,
                 size: 64,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
               Text(
                 'Nenhuma cidade salva',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -113,7 +113,7 @@ class CustomDrawer extends StatelessWidget {
                 style: TextStyle(
                   // 0.6 sobre o azul do menu fica com contraste baixo demais
                   // para texto secundário.
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -135,11 +135,11 @@ class CustomDrawer extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: isSelected
-                ? Colors.white.withOpacity(0.2)
+                ? Colors.white.withValues(alpha: 0.2)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: isSelected
-                ? Border.all(color: Colors.white.withOpacity(0.3))
+                ? Border.all(color: Colors.white.withValues(alpha: 0.3))
                 : null,
           ),
           child: ListTile(
@@ -148,8 +148,8 @@ class CustomDrawer extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Colors.white.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.1),
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -170,7 +170,7 @@ class CustomDrawer extends StatelessWidget {
                 ? Text(
                     'Cidade atual',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 12,
                     ),
                   )

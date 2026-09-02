@@ -23,15 +23,15 @@ class ForecastWidget extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.white.withOpacity(0.15),
-            Colors.white.withOpacity(0.05),
+            Colors.white.withValues(alpha: 0.15),
+            Colors.white.withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -42,7 +42,7 @@ class ForecastWidget extends StatelessWidget {
             children: [
               Icon(
                 Icons.calendar_today,
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -50,7 +50,7 @@ class ForecastWidget extends StatelessWidget {
                 child: Text(
                   'Previsão para os próximos dias',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
@@ -70,7 +70,7 @@ class ForecastWidget extends StatelessWidget {
       return Text(
         'Previsão indisponível para esta cidade',
         style: TextStyle(
-          color: Colors.white.withOpacity(0.7),
+          color: Colors.white.withValues(alpha: 0.7),
           fontSize: 14,
         ),
       );
@@ -88,7 +88,7 @@ class ForecastWidget extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -115,7 +115,7 @@ class ForecastWidget extends StatelessWidget {
                 Text(
                   WeatherDateUtils.formatDate(dayForecast.date),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 12,
                   ),
                   maxLines: 1,
@@ -159,7 +159,7 @@ class ForecastWidget extends StatelessWidget {
                   value: TemperatureUtils.formatTemperature(dayForecast.tempMin),
                   label: 'Min',
                   valueStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 12,
                   ),
                 ),
@@ -210,7 +210,7 @@ class ForecastWidget extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.75),
+              color: Colors.white.withValues(alpha: 0.75),
               fontSize: 11,
             ),
             maxLines: 1,

@@ -36,12 +36,17 @@ class WeatherLoadingWidget extends StatelessWidget {
           ),
           const SizedBox(height: 32),
 
-          // Previsão dos próximos dias
+          // Previsão dos próximos dias.
+          // O analisador acusa avoid_unnecessary_containers aqui, mas este
+          // Container carrega padding e decoration: tirar ele apaga o fundo e o
+          // respiro do cartão. Falso positivo, conferido removendo uma
+          // propriedade de cada vez e vendo o aviso continuar igual.
+          // ignore: avoid_unnecessary_containers
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.blue[700]!.withOpacity(0.3),
+              color: Colors.blue[700]!.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(16),
             ),
             // O Shimmer fica dentro do cartão para o fundo azul não entrar na
@@ -85,8 +90,8 @@ class WeatherLoadingWidget extends StatelessWidget {
 
   Widget _buildShimmer({required Widget child}) {
     return Shimmer.fromColors(
-      baseColor: Colors.white.withOpacity(0.3),
-      highlightColor: Colors.white.withOpacity(0.5),
+      baseColor: Colors.white.withValues(alpha: 0.3),
+      highlightColor: Colors.white.withValues(alpha: 0.5),
       child: child,
     );
   }

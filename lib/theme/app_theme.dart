@@ -76,10 +76,10 @@ class AppTheme {
   /// Cartão translúcido usado sobre o gradiente de fundo.
   static BoxDecoration glassCard({double radius = 16}) {
     return BoxDecoration(
-      color: Colors.white.withOpacity(0.1),
+      color: Colors.white.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         width: 1,
       ),
     );
