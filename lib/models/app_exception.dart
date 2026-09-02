@@ -28,12 +28,6 @@ class AppException implements Exception {
           type: AppErrorType.offline,
         );
 
-  const AppException.timeout()
-      : this(
-          'O servidor demorou demais para responder',
-          type: AppErrorType.timeout,
-        );
-
   const AppException.unauthorized()
       : this(
           'Chave da API inválida ou ainda não ativada',
