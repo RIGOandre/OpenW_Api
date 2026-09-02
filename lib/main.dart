@@ -1,88 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import 'models/app_exception.dart';
 import 'models/weather_model.dart';
-import 'services/weather_service.dart';
 import 'services/city_service.dart';
-import 'widgets/weather_loading_widget.dart';
-import 'widgets/error_widget.dart' as custom;
-import 'widgets/info_cards.dart';
-import 'widgets/forecast_widget.dart';
-import 'widgets/custom_drawer.dart';
-import 'utils/weather_assets.dart';
+import 'services/weather_repository.dart';
+import 'theme/app_theme.dart';
 import 'utils/formatters.dart';
+import 'utils/weather_assets.dart';
+import 'widgets/custom_drawer.dart';
+import 'widgets/forecast_widget.dart';
+import 'widgets/info_cards.dart';
+import 'widgets/weather_error_view.dart';
+import 'widgets/weather_loading_widget.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([
+  SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
     DeviceOrientation.portraitUp,
   ]);
-  runApp(WeatherApp());
+  runApp(const WeatherApp());
 }
 
 class WeatherApp extends StatelessWidget {
+  const WeatherApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Weather Explorer',
-      theme: _buildTheme(),
-      home: WeatherScreen(),
-    );
-  }
-
-  ThemeData _buildTheme() {
-    return ThemeData(
-      primarySwatch: Colors.blue,
-      textTheme: GoogleFonts.poppinsTextTheme(),
-      scaffoldBackgroundColor: const Color(0xFF1E3A8A),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF1E40AF),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-      ),
-      drawerTheme: const DrawerThemeData(
-        backgroundColor: Colors.white,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3B82F6),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
+      theme: AppTheme.build(),
+      home: const WeatherScreen(),
     );
   }
 }
 
 class WeatherScreen extends StatefulWidget {
+  const WeatherScreen({super.key});
+
   @override
-  _WeatherScreenState createState() => _WeatherScreenState();
+  State<WeatherScreen> createState() => _WeatherScreenState();
 }
 
 class _WeatherScreenState extends State<WeatherScreen>
     with TickerProviderStateMixin {
   // Services
-  late final WeatherService _weatherService;
+  late final WeatherRepository _repository;
   late final CityService _cityService;
-  
+
   // State
-  WeatherModel? _currentWeather;
-  List<ForecastModel>? _forecast;
-  String _selectedCity = "São Paulo";
-  List<String> _cities = [];
-  bool _isLoading = false;
-  String? _errorMessage;
-  
+  WeatherSnapshot? _snapshot;
+  String _selectedCity = 'São Paulo';
+  List<String> _cities = <String>[];
+  bool _isLoading = true;
+  AppException? _error;
+
+  /// Cada busca recebe um número; respostas de buscas antigas são descartadas
+  /// para que trocar de cidade rápido não deixe a tela com o dado errado.
+  int _requestId = 0;
+
   // Animations
   late AnimationController _animationController;
   late AnimationController _refreshAnimationController;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _rotationAnimation;
 
   @override
   void initState() {
@@ -96,12 +77,14 @@ class _WeatherScreenState extends State<WeatherScreen>
   void dispose() {
     _animationController.dispose();
     _refreshAnimationController.dispose();
-    _weatherService.dispose();
+    // O repositório fecha o cliente HTTP. O banco fica de fora: o
+    // DatabaseHelper é único no aplicativo e não pertence a esta tela.
+    _repository.dispose();
     super.dispose();
   }
 
   void _initializeServices() {
-    _weatherService = WeatherService();
+    _repository = WeatherRepository();
     _cityService = CityService();
   }
 
@@ -110,12 +93,12 @@ class _WeatherScreenState extends State<WeatherScreen>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
+
     _refreshAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -123,196 +106,227 @@ class _WeatherScreenState extends State<WeatherScreen>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
-    
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _refreshAnimationController,
-      curve: Curves.easeInOut,
-    ));
   }
 
   Future<void> _loadInitialData() async {
-    await _loadCities();
+    try {
+      await _loadCities();
+    } catch (error) {
+      // Falhar ao ler a lista não impede mostrar o clima da cidade padrão.
+      _showError(error);
+    }
+    if (!mounted) return;
+
     await _loadLastSelectedCity();
-    await _fetchWeatherData();
+    if (!mounted) return;
+
+    await _fetchWeatherData(_selectedCity);
   }
 
-  Future<void> _loadCities() async {
-    try {
-      final cities = await _cityService.getCities();
-      setState(() {
-        _cities = cities;
-      });
-    } catch (e) {
-      _showError('Erro ao carregar cidades: $e');
-    }
+  /// Relê a lista de cidades e devolve o que foi lido.
+  ///
+  /// Quem chama precisa da lista nova para decidir: o campo [_cities] só é
+  /// atualizado se a tela ainda estiver montada.
+  Future<List<String>> _loadCities() async {
+    final cities = await _cityService.getCities();
+    if (!mounted) return cities;
+
+    setState(() {
+      _cities = cities;
+    });
+    return cities;
   }
 
   Future<void> _loadLastSelectedCity() async {
     try {
       final lastCity = await _cityService.getLastSelectedCity();
+      if (!mounted) return;
+
       setState(() {
         _selectedCity = lastCity;
       });
-    } catch (e) {
-      // Ignore error, use default city
+    } catch (error) {
+      // O serviço já cai na cidade padrão; aqui fica só o rastro no log.
+      debugPrint('Falha ao ler a última cidade selecionada: $error');
     }
   }
 
-  Future<void> _fetchWeatherData() async {
+  Future<void> _fetchWeatherData(
+    String city, {
+    bool forceRefresh = false,
+  }) async {
+    if (!mounted) return;
+
+    // Sem chave configurada não vale gastar uma ida à rede para falhar igual.
+    if (!_repository.hasApiKey) {
+      setState(() {
+        _error = const AppException.missingApiKey();
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final requestId = ++_requestId;
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
+      _error = null;
     });
 
     try {
-      final results = await Future.wait([
-        _weatherService.getCurrentWeather(_selectedCity),
-        _weatherService.getForecast(_selectedCity),
-      ]);
-
-      final weather = results[0] as WeatherModel;
-      final forecast = results[1] as List<ForecastModel>;
+      final snapshot = await _repository.load(city, forceRefresh: forceRefresh);
+      if (!mounted || requestId != _requestId) return;
 
       setState(() {
-        _currentWeather = weather;
-        _forecast = forecast;
+        _snapshot = snapshot;
         _isLoading = false;
       });
+      // `from: 0` porque o fade precisa recomeçar a cada troca de cidade.
+      _animationController.forward(from: 0);
+    } catch (error) {
+      if (!mounted || requestId != _requestId) return;
 
-      await _cityService.saveLastSelectedCity(_selectedCity);
-      _animationController.forward();
-    } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _error = AppException.from(error);
         _isLoading = false;
       });
+      return;
     }
+
+    // Guardar a escolha é o último passo: uma falha aqui não pode transformar
+    // um carregamento bem-sucedido em tela de erro.
+    await _cityService.saveLastSelectedCity(city);
   }
 
   Future<void> _refreshData() async {
     _refreshAnimationController.repeat();
-    await _fetchWeatherData();
-    _refreshAnimationController.stop();
-    _refreshAnimationController.reset();
+    try {
+      // Atualizar de propósito ignora o cache: aqui o usuário quer dado novo.
+      await _fetchWeatherData(_selectedCity, forceRefresh: true);
+    } finally {
+      // O ícone não pode ficar girando para sempre se a busca falhar.
+      if (mounted) {
+        _refreshAnimationController
+          ..stop()
+          ..reset();
+      }
+    }
   }
 
+  void _retry() {
+    _fetchWeatherData(_selectedCity, forceRefresh: true);
+  }
+
+  /// Troca a cidade exibida. Fechar o menu lateral é com quem chama.
   void _selectCity(String city) {
     setState(() {
       _selectedCity = city;
     });
-    Navigator.pop(context);
-    _fetchWeatherData();
+    _fetchWeatherData(city);
   }
 
   Future<void> _addCity(String cityName) async {
-    if (cityName.trim().isEmpty) return;
-    
+    final city = cityName.trim();
+    if (city.isEmpty) return;
+
     try {
-      await _cityService.addCity(cityName.trim());
+      await _cityService.addCity(city);
       await _loadCities();
-      Navigator.pop(context);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Cidade "$cityName" adicionada com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      _showError('Erro ao adicionar cidade: $e');
+      _showMessage('Cidade "$city" adicionada com sucesso!',
+          background: Colors.green);
+    } catch (error) {
+      _showError(error);
     }
   }
 
   Future<void> _deleteCity(String city) async {
-    if (_cities.length <= 1) {
-      _showError('Não é possível remover a última cidade');
-      return;
-    }
-
+    // A regra de não remover a última cidade mora no CityService, que é quem
+    // sabe o número certo; aqui só se exibe a mensagem que vier de lá.
     try {
       await _cityService.removeCity(city);
-      await _loadCities();
-      
-      if (_selectedCity == city && _cities.isNotEmpty) {
-        _selectCity(_cities.first);
+      final cities = await _loadCities();
+      if (!mounted) return;
+
+      // Se a cidade aberta saiu da lista, cair na primeira que sobrou.
+      if (cities.isNotEmpty && !cities.contains(_selectedCity)) {
+        _selectCity(cities.first);
       }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Cidade "$city" removida com sucesso!'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    } catch (e) {
-      _showError('Erro ao remover cidade: $e');
+      _showMessage('Cidade "$city" removida com sucesso!',
+          background: Colors.orange);
+    } catch (error) {
+      _showError(error);
     }
   }
 
-  void _showError(String message) {
+  void _showError(Object error) {
+    final failure = AppException.from(error);
+    // A mensagem do AppException já vem pronta para o usuário; o erro de
+    // origem fica no log, que é onde ele serve para alguma coisa.
+    if (failure.cause != null) {
+      debugPrint('Falha em ${failure.type.name}: ${failure.cause}');
+    }
+    _showMessage(failure.message, background: Colors.red);
+  }
+
+  void _showMessage(String message, {required Color background}) {
+    // Todo aviso sai de um `catch` assíncrono: a tela pode já ter sido fechada.
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: background,
         duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  void _showAddCityDialog() {
-    final textController = TextEditingController();
-    
-    showDialog(
+  Future<void> _showAddCityDialog() async {
+    // O diálogo devolve o nome digitado e se fecha sozinho: assim a gravação
+    // acontece sem ninguém mexer na pilha de rotas depois de um `await`.
+    final city = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Adicionar Cidade'),
-        content: TextField(
-          controller: textController,
-          decoration: const InputDecoration(
-            hintText: 'Nome da cidade',
-            border: OutlineInputBorder(),
-          ),
-          textCapitalization: TextCapitalization.words,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => _addCity(textController.text),
-            child: const Text('Adicionar'),
-          ),
-        ],
-      ),
+      builder: (_) => const _AddCityDialog(),
     );
+    if (!mounted || city == null) return;
+
+    await _addCity(city);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E3A8A),
       appBar: _buildAppBar(),
       drawer: _buildDrawer(),
       body: _buildBody(),
     );
   }
 
+  /// Nome no topo da tela.
+  ///
+  /// O nome que a API devolveu é o melhor acabado, mas ele ainda é o da cidade
+  /// anterior enquanto a busca nova não termina — aí vale a cidade escolhida.
+  String get _appBarTitle {
+    final snapshot = _snapshot;
+    if (_isLoading || _error != null || snapshot == null) return _selectedCity;
+    return snapshot.weather.cityName;
+  }
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       title: Text(
-        _currentWeather?.cityName ?? _selectedCity,
+        _appBarTitle,
         style: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 20,
         ),
+        overflow: TextOverflow.ellipsis,
       ),
       centerTitle: true,
       actions: [
         RotationTransition(
-          turns: _rotationAnimation,
+          // O controller entra direto como `turns` para o giro sair contínuo,
+          // sem a aceleração e a freada que uma curva daria a cada volta.
+          turns: _refreshAnimationController,
           child: IconButton(
             onPressed: _refreshData,
             icon: const Icon(Icons.refresh),
@@ -321,16 +335,7 @@ class _WeatherScreenState extends State<WeatherScreen>
         ),
       ],
       flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Colors.blue[800]!,
-              Colors.blue[600]!,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        decoration: BoxDecoration(gradient: AppTheme.appBar),
       ),
     );
   }
@@ -339,7 +344,11 @@ class _WeatherScreenState extends State<WeatherScreen>
     return CustomDrawer(
       cities: _cities,
       currentCity: _selectedCity,
-      onCitySelected: _selectCity,
+      // Fechar o menu só é seguro aqui, no toque, antes de qualquer `await`.
+      onCitySelected: (city) {
+        Navigator.pop(context);
+        _selectCity(city);
+      },
       onCityDeleted: _deleteCity,
       onAddCity: _showAddCityDialog,
     );
@@ -349,15 +358,19 @@ class _WeatherScreenState extends State<WeatherScreen>
     if (_isLoading) {
       return const WeatherLoadingWidget();
     }
-    
-    if (_errorMessage != null) {
-      return custom.ErrorWidget(
-        message: _errorMessage!,
-        onRetry: _fetchWeatherData,
+
+    final error = _error;
+    if (error != null) {
+      return WeatherErrorView(
+        message: _errorMessage(error),
+        icon: _errorIcon(error.type),
+        title: _errorTitle(error.type),
+        onRetry: _retry,
       );
     }
-    
-    if (_currentWeather == null || _forecast == null) {
+
+    final snapshot = _snapshot;
+    if (snapshot == null) {
       return const Center(
         child: Text(
           'Nenhum dado disponível',
@@ -368,31 +381,89 @@ class _WeatherScreenState extends State<WeatherScreen>
 
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: _buildWeatherContent(),
+      child: _buildWeatherContent(snapshot),
     );
   }
 
-  Widget _buildWeatherContent() {
-    final weather = _currentWeather!;
-    final forecast = _forecast!;
+  /// Acrescenta a instrução que falta em cada tipo de falha: sem chave
+  /// configurada, insistir no botão não resolve; com cidade inexistente, a
+  /// saída está no menu lateral.
+  String _errorMessage(AppException error) {
+    switch (error.type) {
+      case AppErrorType.configuration:
+      case AppErrorType.unauthorized:
+        return '${error.message}\n\n'
+            'flutter run --dart-define-from-file=.env';
+      case AppErrorType.notFound:
+        return '${error.message}\n'
+            'Você também pode escolher outra cidade no menu.';
+      default:
+        return error.message;
+    }
+  }
+
+  IconData _errorIcon(AppErrorType type) {
+    switch (type) {
+      case AppErrorType.offline:
+      case AppErrorType.network:
+        return Icons.cloud_off;
+      case AppErrorType.timeout:
+        return Icons.timer_off;
+      case AppErrorType.notFound:
+        return Icons.location_off;
+      case AppErrorType.configuration:
+      case AppErrorType.unauthorized:
+        return Icons.vpn_key;
+      case AppErrorType.database:
+        return Icons.storage;
+      default:
+        return Icons.error_outline;
+    }
+  }
+
+  String _errorTitle(AppErrorType type) {
+    switch (type) {
+      case AppErrorType.offline:
+      case AppErrorType.network:
+        return 'Sem conexão';
+      case AppErrorType.timeout:
+        return 'Demorou demais';
+      case AppErrorType.notFound:
+        return 'Cidade não encontrada';
+      case AppErrorType.configuration:
+      case AppErrorType.unauthorized:
+        return 'Chave da API';
+      case AppErrorType.database:
+        return 'Dados locais';
+      case AppErrorType.server:
+        return 'Servidor com problema';
+      default:
+        return 'Oops!';
+    }
+  }
+
+  Widget _buildWeatherContent(WeatherSnapshot snapshot) {
+    final weather = snapshot.weather;
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: _getGradientColors(weather.icon),
-        ),
+        gradient: AppTheme.background(isDay: weather.isDay),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
+            _buildCacheBanner(snapshot),
             _buildCurrentWeatherCard(weather),
             const SizedBox(height: 24),
             _buildLocationCard(weather),
             const SizedBox(height: 24),
-            ForecastWidget(forecast: forecast),
+            // A referência é a hora da cidade: sem ela, "Hoje" e "Amanhã"
+            // mentem para quem consulta um lugar em outro fuso.
+            ForecastWidget(
+              forecast: snapshot.dailyForecast,
+              reference: snapshot.cityNow,
+            ),
             const SizedBox(height: 24),
             _buildInfoCardsGrid(weather),
             const SizedBox(height: 24),
@@ -404,7 +475,45 @@ class _WeatherScreenState extends State<WeatherScreen>
     );
   }
 
+  /// Aviso de que o conteúdo saiu do banco local, e não da rede.
+  Widget _buildCacheBanner(WeatherSnapshot snapshot) {
+    if (!snapshot.fromCache) return const SizedBox.shrink();
+
+    final savedAt = WeatherDateUtils.getTimeAgo(snapshot.updatedAt);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: AppTheme.glassCard(radius: 12),
+        child: Row(
+          children: [
+            Icon(
+              snapshot.isStale ? Icons.cloud_off : Icons.history,
+              color: Colors.white.withOpacity(0.8),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                snapshot.isStale
+                    ? 'Sem conexão. Último clima salvo $savedAt'
+                    : 'Dados salvos no aparelho $savedAt',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.85),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCurrentWeatherCard(WeatherModel weather) {
+    final description = WeatherUtils.capitalizeFirst(weather.description);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -436,7 +545,7 @@ class _WeatherScreenState extends State<WeatherScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            WeatherUtils.capitalizeFirst(weather.description),
+            description,
             style: const TextStyle(
               fontSize: 20,
               color: Colors.white,
@@ -455,8 +564,11 @@ class _WeatherScreenState extends State<WeatherScreen>
                 color: Colors.white.withOpacity(0.1),
               ),
               child: Image.asset(
-                WeatherAssets.getWeatherGif(weather.icon),
+                // `forCondition` troca a chuva comum pela animação de temporal
+                // quando o código da condição indica chuva forte.
+                WeatherAssets.forCondition(weather.icon, weather.conditionId),
                 fit: BoxFit.contain,
+                semanticLabel: description,
                 errorBuilder: (context, error, stackTrace) {
                   return Icon(
                     Icons.wb_sunny,
@@ -476,14 +588,7 @@ class _WeatherScreenState extends State<WeatherScreen>
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
+      decoration: AppTheme.glassCard(),
       child: Column(
         children: [
           Row(
@@ -495,23 +600,37 @@ class _WeatherScreenState extends State<WeatherScreen>
                 size: 20,
               ),
               const SizedBox(width: 8),
-              Text(
-                '${weather.cityName}, ${weather.country}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
+              // Flexible para nome de cidade longo quebrar em vez de estourar.
+              Flexible(
+                child: Text(
+                  '${weather.cityName}, ${weather.country}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            'Lat: ${weather.latitude.toStringAsFixed(2)}° | Lng: ${weather.longitude.toStringAsFixed(2)}°',
+            WeatherUtils.formatCoordinates(weather.latitude, weather.longitude),
             style: TextStyle(
               color: Colors.white.withOpacity(0.7),
               fontSize: 14,
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Medição das ${WeatherDateUtils.formatTime(weather.observedAt)}, '
+            'hora da cidade',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -523,7 +642,9 @@ class _WeatherScreenState extends State<WeatherScreen>
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.8,
+      // 1.8 deixava o cartão com uns poucos pixels de sobra para ícone e dois
+      // textos; 1.6 dá folga sem mudar a grade.
+      childAspectRatio: 1.6,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
       children: [
@@ -541,7 +662,8 @@ class _WeatherScreenState extends State<WeatherScreen>
         ),
         InfoCard(
           label: 'Vento',
-          value: WeatherUtils.formatWindSpeed(weather.windSpeed),
+          value: '${WeatherUtils.formatWindSpeed(weather.windSpeed)} '
+              '${WeatherUtils.getWindDirection(weather.windDegrees)}',
           icon: Icons.air,
           iconColor: Colors.grey[300],
         ),
@@ -550,6 +672,19 @@ class _WeatherScreenState extends State<WeatherScreen>
           value: WeatherUtils.formatPressure(weather.pressure),
           icon: Icons.compress,
           iconColor: Colors.purple[300],
+        ),
+        InfoCard(
+          label: 'Mínima e máxima',
+          value: '${TemperatureUtils.formatDegrees(weather.tempMin)} / '
+              '${TemperatureUtils.formatDegrees(weather.tempMax)}',
+          icon: Icons.swap_vert,
+          iconColor: Colors.teal[200],
+        ),
+        InfoCard(
+          label: 'Visibilidade',
+          value: WeatherUtils.formatVisibility(weather.visibility),
+          icon: Icons.visibility,
+          iconColor: Colors.cyan[200],
         ),
       ],
     );
@@ -576,18 +711,64 @@ class _WeatherScreenState extends State<WeatherScreen>
       ],
     );
   }
+}
 
-  List<Color> _getGradientColors(String icon) {
-    if (WeatherAssets.isDayTime(icon)) {
-      return [
-        const Color(0xFF1E3A8A),
-        const Color(0xFF3B82F6),
-      ];
-    } else {
-      return [
-        const Color(0xFF0F172A),
-        const Color(0xFF1E293B),
-      ];
-    }
+/// Diálogo de cadastro de cidade.
+///
+/// Cuida do próprio `TextEditingController` — criado e descartado aqui, em vez
+/// de ficar solto a cada abertura — e devolve o nome digitado pelo `Navigator`.
+class _AddCityDialog extends StatefulWidget {
+  const _AddCityDialog();
+
+  @override
+  State<_AddCityDialog> createState() => _AddCityDialogState();
+}
+
+class _AddCityDialogState extends State<_AddCityDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final city = _controller.text.trim();
+    if (city.isEmpty) return;
+
+    Navigator.pop(context, city);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Adicionar Cidade'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: 'Nome da cidade',
+          border: OutlineInputBorder(),
+        ),
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _confirm(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _controller,
+          builder: (context, value, child) => ElevatedButton(
+            // Campo vazio não tem o que salvar.
+            onPressed: value.text.trim().isEmpty ? null : _confirm,
+            child: const Text('Adicionar'),
+          ),
+        ),
+      ],
+    );
   }
 }
