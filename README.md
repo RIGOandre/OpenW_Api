@@ -16,7 +16,7 @@ internet.
 
 ## Requisitos
 
-- Flutter 3.3 ou superior (o Dart vem junto)
+- Flutter 3.41 ou superior (o Dart 3.11 vem junto)
 - Uma chave da OpenWeatherMap — o plano gratuito basta:
   <https://openweathermap.org/api>
 
@@ -57,16 +57,29 @@ flutter run --dart-define=OPENWEATHER_API_KEY=sua_chave_aqui
 Sem chave configurada o app abre, mas as consultas falham com aviso na tela —
 `WeatherService.hasApiKey` é o que sinaliza isso.
 
+## Testes
+
+```bash
+flutter test
+```
+
+Cobrem os formatadores de texto e a leitura do JSON da OpenWeatherMap: arredondamento
+de temperatura, conversão do vento para km/h, deslocamento de horário para o fuso da
+cidade e o resumo dos próximos dias a partir dos blocos de 3 em 3 horas.
+
 ## Estrutura
 
 ```
 lib/
-├── main.dart                       tela principal, tema e navegação
+├── main.dart                       tela principal e navegação
+├── theme/
+│   └── app_theme.dart              paleta, gradientes e o ThemeData do app
 ├── models/
 │   ├── weather_model.dart          clima atual, previsão e resumo diário
 │   └── app_exception.dart          erros tipados (rede, chave, cidade não achada)
 ├── services/
 │   ├── weather_service.dart        cliente da OpenWeatherMap
+│   ├── weather_repository.dart     junta clima e previsão, com cache local
 │   ├── city_service.dart           cidades favoritas
 │   └── connectivity_service.dart   checagem de conexão antes da requisição
 ├── widgets/
@@ -74,7 +87,7 @@ lib/
 │   ├── forecast_widget.dart        previsão dos próximos dias
 │   ├── info_cards.dart             cartões de vento, umidade, sol
 │   ├── weather_loading_widget.dart carregamento com shimmer
-│   └── error_widget.dart           estados de erro
+│   └── weather_error_view.dart     estados de erro
 ├── utils/
 │   ├── formatters.dart             temperatura, datas e textos
 │   └── weather_assets.dart         código da API → animação em assets/images
