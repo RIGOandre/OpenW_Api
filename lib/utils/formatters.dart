@@ -2,9 +2,16 @@ import 'package:intl/intl.dart';
 
 /// Classe utilitária para formatação de temperaturas
 class TemperatureUtils {
+  const TemperatureUtils._();
+
   /// Formata uma temperatura em Celsius com símbolo
   static String formatTemperature(double temperature) {
     return '${temperature.round()}°C';
+  }
+
+  /// Formata uma temperatura sem a unidade, para composições curtas
+  static String formatDegrees(double temperature) {
+    return '${temperature.round()}°';
   }
 
   /// Converte Celsius para Fahrenheit
@@ -28,6 +35,8 @@ class TemperatureUtils {
 
 /// Classe utilitária para formatação de dados meteorológicos
 class WeatherUtils {
+  const WeatherUtils._();
+
   /// Capitaliza a primeira letra de uma string
   static String capitalizeFirst(String text) {
     if (text.isEmpty) return text;
@@ -39,9 +48,15 @@ class WeatherUtils {
     return '${humidity.round()}%';
   }
 
+  /// Converte metros por segundo em quilômetros por hora
+  static double msToKmh(double metersPerSecond) => metersPerSecond * 3.6;
+
   /// Formata velocidade do vento
-  static String formatWindSpeed(double windSpeed) {
-    return '${windSpeed.toStringAsFixed(1)} km/h';
+  ///
+  /// A OpenWeatherMap entrega o vento em m/s quando `units=metric`, então a
+  /// conversão acontece aqui antes de mostrar o valor em km/h.
+  static String formatWindSpeed(double metersPerSecond) {
+    return '${msToKmh(metersPerSecond).toStringAsFixed(1)} km/h';
   }
 
   /// Formata pressão atmosférica
@@ -50,23 +65,23 @@ class WeatherUtils {
   }
 
   /// Formata visibilidade
-  static String formatVisibility(double visibility) {
+  static String formatVisibility(num visibility) {
     if (visibility >= 1000) {
       return '${(visibility / 1000).toStringAsFixed(1)} km';
     }
     return '${visibility.round()} m';
   }
 
-  /// Obtém a descrição da direção do vento
+  /// Obtém a descrição da direção do vento na rosa dos ventos em português
   static String getWindDirection(double degrees) {
     const directions = [
       'N', 'NNE', 'NE', 'ENE',
-      'E', 'ESE', 'SE', 'SSE',
-      'S', 'SSW', 'SW', 'WSW',
-      'W', 'WNW', 'NW', 'NNW'
+      'L', 'ESE', 'SE', 'SSE',
+      'S', 'SSO', 'SO', 'OSO',
+      'O', 'ONO', 'NO', 'NNO',
     ];
-    
-    int index = ((degrees + 11.25) / 22.5).floor() % 16;
+
+    final index = ((degrees % 360 + 11.25) / 22.5).floor() % 16;
     return directions[index];
   }
 
@@ -85,10 +100,18 @@ class WeatherUtils {
   static String formatRainChance(num rainChance) {
     return '${rainChance.round()}%';
   }
+
+  /// Formata um par de coordenadas geográficas
+  static String formatCoordinates(double latitude, double longitude) {
+    return 'Lat: ${latitude.toStringAsFixed(2)}° | '
+        'Lng: ${longitude.toStringAsFixed(2)}°';
+  }
 }
 
 /// Classe utilitária para formatação de datas e horários
 class WeatherDateUtils {
+  const WeatherDateUtils._();
+
   /// Formata uma data no formato brasileiro (dd/MM/yyyy)
   static String formatDate(DateTime date) {
     return DateFormat('dd/MM/yyyy').format(date);
@@ -113,8 +136,8 @@ class WeatherDateUtils {
   /// Retorna o dia da semana completo
   static String formatWeekDayFull(DateTime date) {
     const weekDaysFull = [
-      'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 
-      'Quinta-feira', 'Sexta-feira', 'Sábado'
+      'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira',
+      'Quinta-feira', 'Sexta-feira', 'Sábado',
     ];
     return weekDaysFull[date.weekday % 7];
   }
@@ -123,7 +146,7 @@ class WeatherDateUtils {
   static String formatMonth(DateTime date) {
     const monthsShort = [
       'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
     ];
     return monthsShort[date.month - 1];
   }
@@ -132,19 +155,18 @@ class WeatherDateUtils {
   static String formatMonthFull(DateTime date) {
     const monthsFull = [
       'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
     ];
     return monthsFull[date.month - 1];
   }
 
   /// Formata data relativa (Hoje, Amanhã, etc.)
-  static String getRelativeDay(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final targetDate = DateTime(date.year, date.month, date.day);
-    
-    final difference = targetDate.difference(today).inDays;
-    
+  ///
+  /// [reference] permite comparar com a hora da cidade consultada em vez da
+  /// hora do aparelho, que pode estar em outro fuso.
+  static String getRelativeDay(DateTime date, {DateTime? reference}) {
+    final difference = daysBetween(reference ?? DateTime.now(), date);
+
     switch (difference) {
       case 0:
         return 'Hoje';
@@ -160,37 +182,37 @@ class WeatherDateUtils {
     }
   }
 
-  /// Calcula a diferença de tempo de forma humanizada
-  static String getTimeAgo(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
+  /// Diferença em dias entre duas datas, ignorando horário e horário de verão
+  static int daysBetween(DateTime from, DateTime to) {
+    final fromDay = DateTime.utc(from.year, from.month, from.day);
+    final toDay = DateTime.utc(to.year, to.month, to.day);
+    return toDay.difference(fromDay).inDays;
+  }
 
-    if (difference.inSeconds < 60) {
-      return 'Agora há pouco';
+  /// Calcula a diferença de tempo de forma humanizada
+  static String getTimeAgo(DateTime date, {DateTime? reference}) {
+    final difference = (reference ?? DateTime.now()).difference(date);
+
+    if (difference.isNegative || difference.inSeconds < 60) {
+      return 'agora há pouco';
     } else if (difference.inMinutes < 60) {
-      return 'Há ${difference.inMinutes} min';
+      return 'há ${difference.inMinutes} min';
     } else if (difference.inHours < 24) {
-      return 'Há ${difference.inHours}h';
+      return 'há ${difference.inHours}h';
     } else if (difference.inDays < 7) {
-      return 'Há ${difference.inDays}d';
+      return 'há ${difference.inDays}d';
     } else {
-      return formatDate(date);
+      return 'em ${formatDate(date)}';
     }
   }
 
   /// Verifica se uma data é hoje
-  static bool isToday(DateTime date) {
-    final now = DateTime.now();
-    return date.day == now.day && 
-           date.month == now.month && 
-           date.year == now.year;
+  static bool isToday(DateTime date, {DateTime? reference}) {
+    return daysBetween(reference ?? DateTime.now(), date) == 0;
   }
 
   /// Verifica se uma data é amanhã
-  static bool isTomorrow(DateTime date) {
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    return date.day == tomorrow.day && 
-           date.month == tomorrow.month && 
-           date.year == tomorrow.year;
+  static bool isTomorrow(DateTime date, {DateTime? reference}) {
+    return daysBetween(reference ?? DateTime.now(), date) == 1;
   }
 }

@@ -1,93 +1,110 @@
+import 'dart:async';
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
-import 'package:connectivity_plus/connectivity_plus.dart';
-import '../models/weather_model.dart';
 
+import '../models/app_exception.dart';
+import 'connectivity_service.dart';
+
+/// Cliente HTTP da OpenWeatherMap.
+///
+/// A chave nunca fica escrita no código: ela chega por `--dart-define`, o que
+/// permite publicar o repositório sem expor credenciais.
+///
+/// ```bash
+/// flutter run --dart-define-from-file=.env
+/// ```
 class WeatherService {
-  static const String _baseUrl = 'https://api.openweathermap.org/data/2.5';
-  static const String _apiKey = '';
-  
-  final http.Client _client;
-  final Connectivity _connectivity;
-
   WeatherService({
     http.Client? client,
-    Connectivity? connectivity,
-  }) : _client = client ?? http.Client(),
-       _connectivity = connectivity ?? Connectivity();
+    ConnectivityService? connectivity,
+    String? apiKey,
+    this.timeout = const Duration(seconds: 10),
+  })  : _client = client ?? http.Client(),
+        _connectivity = connectivity ?? ConnectivityService(),
+        _apiKey = (apiKey ?? _environmentApiKey).trim();
 
-  Future<bool> _hasInternetConnection() async {
-    final connectivityResult = await _connectivity.checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
+  static const String _host = 'api.openweathermap.org';
+  static const String _basePath = '/data/2.5';
+  static const String _environmentApiKey =
+      String.fromEnvironment('OPENWEATHER_API_KEY');
+
+  final http.Client _client;
+  final ConnectivityService _connectivity;
+  final String _apiKey;
+
+  /// Tempo máximo de espera por resposta.
+  final Duration timeout;
+
+  /// `true` quando existe uma chave configurada.
+  bool get hasApiKey => _apiKey.isNotEmpty;
+
+  /// Clima atual da cidade, em JSON.
+  Future<Map<String, dynamic>> fetchCurrentWeather(String city) =>
+      _request('weather', city);
+
+  /// Previsão de 3 em 3 horas para os próximos 5 dias, em JSON.
+  Future<Map<String, dynamic>> fetchForecast(String city) =>
+      _request('forecast', city);
+
+  Future<Map<String, dynamic>> _request(String endpoint, String city) async {
+    if (!hasApiKey) throw const AppException.missingApiKey();
+    if (!await _connectivity.isOnline()) throw const AppException.offline();
+
+    // Uri.https escapa acentos e espaços do nome da cidade.
+    final url = Uri.https(_host, '$_basePath/$endpoint', <String, String>{
+      'q': city,
+      'appid': _apiKey,
+      'units': 'metric',
+      'lang': 'pt_br',
+    });
+
+    final response = await _send(url);
+    _ensureSuccess(response, city);
+    return _decode(response);
   }
 
-  Future<WeatherModel> getCurrentWeather(String city) async {
-    if (!await _hasInternetConnection()) {
-      throw Exception('Sem conexão com a internet');
-    }
-
-    final url = Uri.parse(
-      '$_baseUrl/weather?q=$city&appid=$_apiKey&units=metric&lang=pt_br',
-    );
-
+  Future<http.Response> _send(Uri url) async {
     try {
-      final response = await _client.get(url).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Timeout na requisição'),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return WeatherModel.fromJson(data);
-      } else if (response.statusCode == 404) {
-        throw Exception('Cidade não encontrada');
-      } else if (response.statusCode == 401) {
-        throw Exception('Chave da API inválida');
-      } else {
-        throw Exception('Erro no servidor: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (e is Exception) rethrow;
-      throw Exception('Erro de rede: $e');
+      return await _client.get(url).timeout(timeout);
+    } on TimeoutException catch (error) {
+      throw AppException('O servidor demorou demais para responder',
+          type: AppErrorType.timeout, cause: error);
+    } on http.ClientException catch (error) {
+      throw AppException('Não foi possível falar com o servidor',
+          type: AppErrorType.network, cause: error);
+    } catch (error) {
+      throw AppException('Falha de rede ao buscar os dados',
+          type: AppErrorType.network, cause: error);
     }
   }
 
-  Future<List<ForecastModel>> getForecast(String city) async {
-    if (!await _hasInternetConnection()) {
-      throw Exception('Sem conexão com a internet');
+  void _ensureSuccess(http.Response response, String city) {
+    final status = response.statusCode;
+    if (status == 200) return;
+    if (status == 401) throw const AppException.unauthorized();
+    if (status == 404) throw AppException.notFound(city);
+    if (status == 429) {
+      throw const AppException(
+        'Limite de requisições da API atingido. Tente em alguns minutos.',
+        type: AppErrorType.server,
+      );
     }
+    throw AppException.server(status);
+  }
 
-    final url = Uri.parse(
-      '$_baseUrl/forecast?q=$city&appid=$_apiKey&units=metric&lang=pt_br',
-    );
-
+  Map<String, dynamic> _decode(http.Response response) {
     try {
-      final response = await _client.get(url).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Timeout na requisição'),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic> forecastList = data['list'];
-        
-        return forecastList
-            .map((item) => ForecastModel.fromJson(item))
-            .toList();
-      } else if (response.statusCode == 404) {
-        throw Exception('Cidade não encontrada');
-      } else if (response.statusCode == 401) {
-        throw Exception('Chave da API inválida');
-      } else {
-        throw Exception('Erro no servidor: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (e is Exception) rethrow;
-      throw Exception('Erro de rede: $e');
+      // Decodificar os bytes evita acentos quebrados quando o servidor não
+      // informa o charset no cabeçalho.
+      final decoded = json.decode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) return decoded;
+      throw const FormatException('Resposta em formato inesperado');
+    } on FormatException catch (error) {
+      throw AppException('O servidor devolveu uma resposta inválida',
+          type: AppErrorType.server, cause: error);
     }
   }
 
-  void dispose() {
-    _client.close();
-  }
+  void dispose() => _client.close();
 }

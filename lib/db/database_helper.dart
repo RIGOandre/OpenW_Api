@@ -1,193 +1,303 @@
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:path/path.dart';
-import 'dart:io';
 
+import '../models/app_exception.dart';
+
+/// Resposta da API guardada no banco local.
+class CachedWeather {
+  const CachedWeather({
+    required this.data,
+    required this.cachedAt,
+    required this.expiresAt,
+  });
+
+  /// JSON bruto devolvido pela API.
+  final String data;
+  final DateTime cachedAt;
+  final DateTime expiresAt;
+
+  bool get isExpired => DateTime.now().isAfter(expiresAt);
+}
+
+/// Acesso ao SQLite: cidades salvas e cache das respostas da API.
 class DatabaseHelper {
-  static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
 
   DatabaseHelper._internal();
 
-  Database? _database;
-  static bool _initialized = false;
+  static final DatabaseHelper _instance = DatabaseHelper._internal();
 
-  static void _initializeDatabaseFactory() {
-    if (!_initialized) {
-      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-        // Inicializa o sqflite_ffi para plataformas desktop
-        sqfliteFfiInit();
-        databaseFactory = databaseFactoryFfi;
-      }
-      _initialized = true;
+  static const String citiesTable = 'cities';
+  static const String cacheTable = 'weather_cache';
+  static const String databaseName = 'weather_explorer.db';
+  static const int schemaVersion = 3;
+  static const List<String> defaultCities = <String>['São Paulo', 'Concórdia'];
+
+  Database? _database;
+  Future<Database>? _opening;
+  static bool _factoryReady = false;
+
+  /// Registra a implementação de SQLite adequada à plataforma atual.
+  ///
+  /// Em Windows, Linux e macOS o plugin nativo não existe, então usamos o
+  /// `sqflite_common_ffi`. Chamar mais de uma vez é seguro.
+  static void initializePlatform() {
+    if (_factoryReady) return;
+    if (_isDesktop) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+    _factoryReady = true;
+  }
+
+  static bool get _isDesktop =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS);
+
+  /// Chave usada para comparar cidades sem depender de acentuação de caixa.
+  static String cityKey(String cityName) =>
+      cityName.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+
+  /// Banco aberto, reaproveitando a mesma conexão entre chamadas simultâneas.
+  Future<Database> get database async {
+    final opened = _database;
+    if (opened != null) return opened;
+
+    final pending = _opening ??= _open();
+    try {
+      final db = await pending;
+      _database = db;
+      return db;
+    } finally {
+      if (identical(_opening, pending)) _opening = null;
     }
   }
 
-  Future<Database> get database async {
-    _initializeDatabaseFactory();
-    if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
-  }
-
-  Future<Database> _initDatabase() async {
+  Future<Database> _open() async {
+    initializePlatform();
     try {
-      final dbPath = await getDatabasesPath();
-      final path = join(dbPath, 'weather_explorer.db');
-
+      final directory = await getDatabasesPath();
       return await openDatabase(
-        path,
-        version: 2,
+        p.join(directory, databaseName),
+        version: schemaVersion,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
+        onDowngrade: onDatabaseDowngradeDelete,
       );
-    } catch (e) {
-      throw Exception('Erro ao inicializar banco de dados: $e');
+    } catch (error) {
+      throw AppException.database(error);
     }
   }
 
+  // O sqflite já executa onCreate/onUpgrade dentro de uma transação, por isso
+  // nenhum destes métodos pode abrir outra — isso travaria a conexão.
   Future<void> _onCreate(Database db, int version) async {
-    await db.transaction((txn) async {
-      // Tabela de cidades
-      await txn.execute('''
-        CREATE TABLE cities (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT UNIQUE NOT NULL,
-          created_at INTEGER NOT NULL,
-          last_accessed INTEGER
-        )
-      ''');
-
-      // Tabela de cache de clima (opcional para futuras implementações)
-      await txn.execute('''
-        CREATE TABLE weather_cache (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          city_name TEXT NOT NULL,
-          data TEXT NOT NULL,
-          cached_at INTEGER NOT NULL,
-          expires_at INTEGER NOT NULL
-        )
-      ''');
-
-      // Inserir cidades padrão
-      final now = DateTime.now().millisecondsSinceEpoch;
-      await txn.insert('cities', {
-        'name': 'São Paulo',
-        'created_at': now,
-        'last_accessed': now,
-      });
-      await txn.insert('cities', {
-        'name': 'Concórdia',
-        'created_at': now,
-        'last_accessed': null,
-      });
-    });
+    await _createCitiesSchema(db);
+    await _createCacheSchema(db);
+    await _seedDefaultCities(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.transaction((txn) async {
-        // Migrar dados da versão antiga se existir
-        try {
-          final oldCities = await txn.rawQuery('SELECT name FROM cities');
-          await txn.execute('DROP TABLE IF EXISTS cities');
-          
-          await _onCreate(db, newVersion);
-          
-          // Re-inserir cidades antigas
-          for (final city in oldCities) {
-            await insertCity(city['name'] as String);
-          }
-        } catch (e) {
-          // Se falhar, criar nova estrutura
-          await _onCreate(db, newVersion);
-        }
-      });
-    }
-  }
+    await _createCitiesSchema(db);
 
-  Future<List<String>> getCities() async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        'cities',
-        columns: ['name'],
-        orderBy: 'last_accessed DESC, created_at ASC',
+    final columns = await _columnsOf(db, citiesTable);
+    if (!columns.contains('created_at')) {
+      await db.execute('ALTER TABLE $citiesTable ADD COLUMN created_at INTEGER');
+    }
+    if (!columns.contains('last_accessed')) {
+      await db.execute(
+        'ALTER TABLE $citiesTable ADD COLUMN last_accessed INTEGER',
       );
-      return result.map((row) => row['name'] as String).toList();
-    } catch (e) {
-      throw Exception('Erro ao buscar cidades: $e');
     }
+    if (!columns.contains('name_key')) {
+      await db.execute('ALTER TABLE $citiesTable ADD COLUMN name_key TEXT');
+    }
+
+    await _backfillCities(db);
+    await _removeDuplicateCities(db);
+    await _createCitiesIndex(db);
+
+    // O cache é descartável: recriar é mais barato do que migrar.
+    await db.execute('DROP TABLE IF EXISTS $cacheTable');
+    await _createCacheSchema(db);
   }
 
-  Future<void> insertCity(String cityName) async {
-    if (cityName.trim().isEmpty) {
-      throw Exception('Nome da cidade não pode estar vazio');
-    }
+  Future<void> _createCitiesSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $citiesTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        name_key TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        last_accessed INTEGER
+      )
+    ''');
+    await _createCitiesIndex(db);
+  }
 
-    try {
-      final db = await database;
-      final now = DateTime.now().millisecondsSinceEpoch;
-      
+  Future<void> _createCitiesIndex(DatabaseExecutor db) async {
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_cities_name_key '
+      'ON $citiesTable (name_key)',
+    );
+  }
+
+  Future<void> _createCacheSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $cacheTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        city_name TEXT NOT NULL,
+        data TEXT NOT NULL,
+        cached_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_weather_cache_city '
+      'ON $cacheTable (city_name)',
+    );
+  }
+
+  Future<void> _seedDefaultCities(DatabaseExecutor db) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final city in defaultCities) {
       await db.insert(
-        'cities',
-        {
-          'name': cityName.trim(),
+        citiesTable,
+        <String, Object?>{
+          'name': city,
+          'name_key': cityKey(city),
           'created_at': now,
           'last_accessed': null,
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
-    } catch (e) {
-      throw Exception('Erro ao inserir cidade: $e');
+    }
+  }
+
+  Future<Set<String>> _columnsOf(DatabaseExecutor db, String table) async {
+    final rows = await db.rawQuery('PRAGMA table_info($table)');
+    return rows.map((row) => row['name']).whereType<String>().toSet();
+  }
+
+  /// Preenche as colunas criadas em versões novas do esquema.
+  Future<void> _backfillCities(DatabaseExecutor db) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.rawUpdate(
+      'UPDATE $citiesTable SET created_at = ? WHERE created_at IS NULL',
+      <Object?>[now],
+    );
+
+    final rows = await db.query(
+      citiesTable,
+      columns: <String>['id', 'name', 'name_key'],
+    );
+    for (final row in rows) {
+      final name = row['name'] as String? ?? '';
+      final key = cityKey(name);
+      if (row['name_key'] == key) continue;
+      await db.update(
+        citiesTable,
+        <String, Object?>{'name_key': key},
+        where: 'id = ?',
+        whereArgs: <Object?>[row['id']],
+      );
+    }
+  }
+
+  /// Remove cidades repetidas antes de criar o índice único.
+  Future<void> _removeDuplicateCities(DatabaseExecutor db) async {
+    await db.execute('''
+      DELETE FROM $citiesTable
+      WHERE id NOT IN (SELECT MIN(id) FROM $citiesTable GROUP BY name_key)
+    ''');
+  }
+
+  /// Cidades salvas, das mais acessadas recentemente para as mais antigas.
+  Future<List<String>> getCities() async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        citiesTable,
+        columns: <String>['name'],
+        orderBy: 'last_accessed DESC, created_at ASC, id ASC',
+      );
+      return rows.map((row) => row['name']).whereType<String>().toList();
+    } catch (error) {
+      throw AppException.database(error);
+    }
+  }
+
+  /// Insere uma cidade e informa se ela realmente foi adicionada.
+  Future<bool> insertCity(String cityName) async {
+    final name = cityName.trim();
+    if (name.isEmpty) {
+      throw const AppException('O nome da cidade não pode ficar em branco');
+    }
+
+    try {
+      final db = await database;
+      final id = await db.insert(
+        citiesTable,
+        <String, Object?>{
+          'name': name,
+          'name_key': cityKey(name),
+          'created_at': DateTime.now().millisecondsSinceEpoch,
+          'last_accessed': null,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      return id != 0;
+    } catch (error) {
+      throw AppException.database(error);
     }
   }
 
   Future<void> updateLastAccessed(String cityName) async {
     try {
       final db = await database;
-      final now = DateTime.now().millisecondsSinceEpoch;
-      
       await db.update(
-        'cities',
-        {'last_accessed': now},
-        where: 'name = ?',
-        whereArgs: [cityName],
+        citiesTable,
+        <String, Object?>{'last_accessed': DateTime.now().millisecondsSinceEpoch},
+        where: 'name_key = ?',
+        whereArgs: <Object?>[cityKey(cityName)],
       );
-    } catch (e) {
-      // Não é crítico se falhar
-      print('Erro ao atualizar último acesso: $e');
+    } catch (error) {
+      // Não é crítico: apenas a ordenação da lista deixa de ser atualizada.
+      debugPrint('Falha ao atualizar o último acesso: $error');
     }
   }
 
-  Future<void> deleteCity(String cityName) async {
+  /// Remove uma cidade e informa se ela existia.
+  Future<bool> deleteCity(String cityName) async {
     try {
       final db = await database;
-      final deleted = await db.delete(
-        'cities',
-        where: 'name = ?',
-        whereArgs: [cityName],
+      final removed = await db.delete(
+        citiesTable,
+        where: 'name_key = ?',
+        whereArgs: <Object?>[cityKey(cityName)],
       );
-      
-      if (deleted == 0) {
-        throw Exception('Cidade não encontrada');
-      }
-    } catch (e) {
-      throw Exception('Erro ao deletar cidade: $e');
+      return removed > 0;
+    } catch (error) {
+      throw AppException.database(error);
     }
   }
 
   Future<bool> cityExists(String cityName) async {
     try {
       final db = await database;
-      final result = await db.query(
-        'cities',
-        where: 'LOWER(name) = LOWER(?)',
-        whereArgs: [cityName.trim()],
+      final rows = await db.query(
+        citiesTable,
+        columns: <String>['id'],
+        where: 'name_key = ?',
+        whereArgs: <Object?>[cityKey(cityName)],
         limit: 1,
       );
-      return result.isNotEmpty;
-    } catch (e) {
+      return rows.isNotEmpty;
+    } catch (error) {
       return false;
     }
   }
@@ -195,9 +305,9 @@ class DatabaseHelper {
   Future<int> getCitiesCount() async {
     try {
       final db = await database;
-      final result = await db.rawQuery('SELECT COUNT(*) as count FROM cities');
-      return Sqflite.firstIntValue(result) ?? 0;
-    } catch (e) {
+      final rows = await db.rawQuery('SELECT COUNT(*) FROM $citiesTable');
+      return Sqflite.firstIntValue(rows) ?? 0;
+    } catch (error) {
       return 0;
     }
   }
@@ -205,26 +315,79 @@ class DatabaseHelper {
   Future<void> clearAllCities() async {
     try {
       final db = await database;
-      await db.delete('cities');
-    } catch (e) {
-      throw Exception('Erro ao limpar cidades: $e');
+      await db.delete(citiesTable);
+    } catch (error) {
+      throw AppException.database(error);
+    }
+  }
+
+  /// Guarda (ou substitui) a resposta da API de uma cidade.
+  Future<void> saveWeatherPayload(
+    String cityName,
+    String payload, {
+    required Duration ttl,
+  }) async {
+    try {
+      final db = await database;
+      final now = DateTime.now();
+      await db.insert(
+        cacheTable,
+        <String, Object?>{
+          'city_name': cityKey(cityName),
+          'data': payload,
+          'cached_at': now.millisecondsSinceEpoch,
+          'expires_at': now.add(ttl).millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (error) {
+      // Ficar sem cache é aceitável; quebrar a tela por causa disso não é.
+      debugPrint('Falha ao gravar o cache do clima: $error');
+    }
+  }
+
+  /// Última resposta salva para a cidade, mesmo que já tenha expirado.
+  Future<CachedWeather?> readWeatherPayload(String cityName) async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        cacheTable,
+        where: 'city_name = ?',
+        whereArgs: <Object?>[cityKey(cityName)],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+
+      final row = rows.first;
+      final data = row['data'];
+      if (data is! String) return null;
+
+      return CachedWeather(
+        data: data,
+        cachedAt: _dateFrom(row['cached_at']),
+        expiresAt: _dateFrom(row['expires_at']),
+      );
+    } catch (error) {
+      debugPrint('Falha ao ler o cache do clima: $error');
+      return null;
     }
   }
 
   Future<void> clearCache() async {
     try {
       final db = await database;
-      await db.delete('weather_cache');
-    } catch (e) {
-      throw Exception('Erro ao limpar cache: $e');
+      await db.delete(cacheTable);
+    } catch (error) {
+      throw AppException.database(error);
     }
   }
 
   Future<void> close() async {
     final db = _database;
-    if (db != null) {
-      await db.close();
-      _database = null;
-    }
+    _database = null;
+    if (db != null) await db.close();
   }
+
+  static DateTime _dateFrom(Object? value) =>
+      DateTime.fromMillisecondsSinceEpoch(value is int ? value : 0);
 }
