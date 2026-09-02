@@ -1,5 +1,5 @@
 name: api_opw
-description: "A new Flutter project."
+description: "Previsão do tempo com dados da OpenWeatherMap, em Flutter."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -67,21 +67,21 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:S
+  # To add assets to your application, add an assets section, like this:
   assets:
-    - assets\images\clear_night.gif
-    - assets\images\cloudy_night.gif
-    - assets\images\cloudy.gif
-    - assets\images\cloudys.gif
-    - assets\images\fog.gif
-    - assets\images\heavy_rain.gif
-    - assets\images\overcast.gif
-    - assets\images\rain_d.gif  
-    - assets\images\rain_n.gif
-    - assets\images\snow_d.gif
-    - assets\images\snow_n.gif
-    - assets\images\sunny.gif
-    - assets\images\thunderstorm.gif
+    - assets/images/clear_night.gif
+    - assets/images/cloudy_night.gif
+    - assets/images/cloudy.gif
+    - assets/images/cloudys.gif
+    - assets/images/fog.gif
+    - assets/images/heavy_rain.gif
+    - assets/images/overcast.gif
+    - assets/images/rain_d.gif
+    - assets/images/rain_n.gif
+    - assets/images/snow_d.gif
+    - assets/images/snow_n.gif
+    - assets/images/sunny.gif
+    - assets/images/thunderstorm.gif
 
     
 

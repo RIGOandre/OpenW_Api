@@ -1,213 +1,97 @@
-# Weather Explorer 🌤️
+# Weather Explorer
 
-<div align="center">
+Aplicativo de previsão do tempo em Flutter, com dados da OpenWeatherMap. Mostra o
+clima atual e a previsão dos próximos dias das cidades que você escolher, guarda a
+lista localmente e continua exibindo o último resultado quando você está sem
+internet.
 
-**Aplicativo moderno de previsão do tempo com interface responsiva e funcionalidades avançadas**
+## Funcionalidades
 
-![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
-![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
-![OpenWeather](https://img.shields.io/badge/OpenWeather_API-orange?style=for-the-badge&logo=weather&logoColor=white)
+- Clima atual: temperatura, sensação térmica, condição, vento, umidade e pressão
+- Previsão dos próximos dias a partir dos blocos de 3 em 3 horas da API
+- Horários de nascer e pôr do sol
+- Lista de cidades favoritas, salva no aparelho
+- Cache em SQLite: o último clima consultado aparece mesmo offline
+- Animações de fundo que acompanham a condição do tempo e o período do dia
 
-</div>
+## Requisitos
 
-## 🚀 Funcionalidades Principais
+- Flutter 3.3 ou superior (o Dart vem junto)
+- Uma chave da OpenWeatherMap — o plano gratuito basta:
+  <https://openweathermap.org/api>
 
-### ⭐ Características Destacadas
-- **Interface Moderna**: Design Material You com glassmorphism e gradientes
-- **Responsividade Completa**: Adaptável a todos os tamanhos de tela
-- **Animações Fluidas**: Transições suaves e feedback visual
-- **Offline Support**: Cache inteligente e persistência local
-- **Multiplataforma**: Android, iOS, Windows, macOS, Linux, Web
+## Como rodar
 
-### 🌤️ Dados Meteorológicos
-- Temperatura atual e sensação térmica
-- Condições climáticas detalhadas com ícones animados
-- Previsão de 5 dias com probabilidade de chuva
-- Informações de vento, umidade e pressão
-- Horários precisos do nascer/pôr do sol
-- Coordenadas geográficas
-
-## Arquitetura e Melhorias Implementadas
-
-### 📦 Estrutura Modular
-```
-lib/
-├── main.dart                    # Aplicação principal com tema customizado
-├── models/                      # Modelos tipados de dados
-│   └── weather_model.dart       # WeatherModel e ForecastModel
-├── services/                    # Camada de serviços
-│   ├── weather_service.dart     # API OpenWeatherMap com tratamento de erros
-│   └── city_service.dart        # Gerenciamento persistente de cidades
-├── widgets/                     # Componentes reutilizáveis
-│   ├── weather_loading_widget.dart  # Loading com shimmer effects
-│   ├── error_widget.dart        # Estados de erro elegantes
-│   ├── info_cards.dart          # Cards informativos responsivos  
-│   ├── forecast_widget.dart     # Widget de previsão avançado
-│   └── custom_drawer.dart       # Drawer personalizado moderno
-├── utils/                       # Utilitários e formatadores
-│   ├── weather_assets.dart      # Mapeamento de ícones climáticos
-│   └── formatters.dart          # Formatação de dados e datas
-└── db/                          # Persistência otimizada
-    └── database_helper.dart     # SQLite com migrações automáticas
-```
-
-### 🔧 Melhorias Técnicas
-
-#### **Gerenciamento de Estado**
-- Controllers de animação com dispose automático
-- Estados de loading, erro e sucesso bem definidos
-- Feedback visual em todas as interações do usuário
-
-#### **Performance e Otimização**
-- Verificação de conectividade antes das requisições
-- Timeouts configuráveis (10 segundos)
-- Cache inteligente com SQLite versionado
-- Lazy loading de componentes pesados
-
-#### **Tratamento de Erros Robusto**
-- Try-catch abrangente em todas as operações
-- Mensagens de erro específicas e amigáveis
-- Fallbacks automáticos para cenários de falha
-- Retry automático com feedback visual
-
-#### **UI/UX Moderna**
-- **Material Design 3** com Google Fonts (Poppins)
-- **Glassmorphism**: Cards com transparência e blur
-- **Gradientes dinâmicos** baseados no período do dia
-- **Animações fluidas**: Fade, rotation e shimmer effects
-- **Responsividade total**: Grid adaptativo e tipografia escalável
-
-## 🛠️ Tecnologias e Dependências
-
-### **Core Framework**
-- **Flutter 3.3+**: Framework multiplataforma
-- **Dart**: Linguagem de programação moderna
-
-### **Networking & API**
-- **http 1.2+**: Cliente HTTP otimizado
-- **connectivity_plus**: Verificação de conectividade
-- **OpenWeatherMap API**: Dados meteorológicos precisos
-
-### **Persistência & Storage**
-- **sqflite**: Banco SQLite local com migrações
-- **shared_preferences**: Configurações do usuário
-- **path**: Manipulação de caminhos de arquivo
-
-### **UI & Design**  
-- **google_fonts**: Tipografia Poppins moderna
-- **shimmer**: Loading states elegantes
-- **lottie**: Suporte a animações avançadas (futuro)
-
-### **Utilitários**
-- **intl**: Formatação de datas e internacionalização
-
-## 🚀 Configuração e Instalação
-
-### **Pré-requisitos**
-- Flutter SDK 3.3.0 ou superior
-- Dart SDK incluído com Flutter
-- Chave da API OpenWeatherMap ([registre-se gratuitamente](https://openweathermap.org/api))
-
-### **Instalação Rápida**
-
-1. **Clone o repositório**
 ```bash
 git clone https://github.com/RIGOandre/OpenW_Api.git
 cd OpenW_Api
-```
-
-2. **Instale as dependências**
-```bash
 flutter pub get
 ```
 
-3. **Configure sua API Key de forma segura**
-   - Obtenha sua chave gratuita em [OpenWeatherMap](https://openweathermap.org/api)
-   - Abra `lib/services/weather_service.dart`
-   - Substitua `static const String _apiKey = '';` pela sua chave
-   - ⚠️ **IMPORTANTE**: Nunca faça commit da sua API key real no repositório!
+A chave da API não fica escrita no código. Ela entra por `--dart-define`, o que
+permite publicar o repositório sem expor a credencial. Copie o exemplo e coloque a
+sua chave nele:
 
-4. **Execute o aplicativo**
 ```bash
-# Para desktop (Windows/macOS/Linux)
-flutter run -d windows
-
-# Para mobile (se emulador/device conectado)
-flutter run
-
-# Para web
-flutter run -d chrome
+cp .env.example .env
 ```
 
-## 📱 Como Usar
-
-### **Navegação Principal**
-- **Tela Inicial**: Exibe clima atual da cidade selecionada
-- **Menu Lateral**: Gerencie suas cidades favoritas
-- **Atualização**: Botão de refresh no AppBar com animação
-- **Previsão**: Role para ver previsão detalhada de 5 dias
-
-### **Gerenciamento de Cidades**
-- **Adicionar**: Use o botão no drawer para adicionar novas cidades
-- **Alternar**: Toque numa cidade para visualizar seu clima
-- **Remover**: Use o ícone de lixeira (mínimo 1 cidade obrigatória)
-- **Persistência**: Suas cidades são salvas localmente
-
-## 🎨 Features de Design
-
-### **Interface Moderna**
-- Material Design 3 com gradientes dinâmicos
-- Glassmorphism com cards semi-transparentes
-- Tipografia Poppins para legibilidade moderna
-- Ícones animados correspondentes às condições climáticas
-
-### **Responsividade Total**
-- Grid adaptativo que se ajusta ao tamanho da tela
-- Layout fluido que funciona em qualquer resolução
-- Touch targets otimizados para mobile e desktop
-- Compatível com múltiplas resoluções
-
-## 🔧 Configuração da API
-
-```dart
-// lib/services/weather_service.dart
-static const String _apiKey = 'SUA_CHAVE_AQUI'; // ← Configure aqui
+```
+OPENWEATHER_API_KEY=sua_chave_aqui
 ```
 
-**Obtenha sua chave gratuita em**: [OpenWeatherMap API](https://openweathermap.org/api)
+O arquivo `.env` está no `.gitignore` e não vai para o repositório. Com ele pronto:
 
-## 🔒 Segurança da API Key
+```bash
+flutter run --dart-define-from-file=.env              # aparelho ou emulador
+flutter run -d windows --dart-define-from-file=.env   # desktop
+flutter run -d chrome  --dart-define-from-file=.env   # web
+```
 
-### ⚠️ **MUITO IMPORTANTE - Segurança da API Key**
+Se preferir não usar arquivo, passe a chave direto:
 
-1. **Nunca faça commit da sua API key real no repositório**
-2. **A API key no código está vazia (`''`) propositalmente**
-3. **Para desenvolvimento local**: Coloque sua chave diretamente no código
-4. **Para produção**: Use variáveis de ambiente ou arquivos de configuração
+```bash
+flutter run --dart-define=OPENWEATHER_API_KEY=sua_chave_aqui
+```
 
-### 📝 **Boas Práticas de Segurança**
-- ✅ Mantenha sua API key privada sempre
-- ✅ Use `.env` files para diferentes ambientes (inclusos no .gitignore)
-- ✅ Para Flutter Web/Desktop em produção, considere proxy de servidor
-- ✅ Monitore o uso da sua API key no painel OpenWeatherMap
+Sem chave configurada o app abre, mas as consultas falham com aviso na tela —
+`WeatherService.hasApiKey` é o que sinaliza isso.
 
-## 🤝 Contribuindo
+## Estrutura
 
-1. Fork este repositório
-2. Crie uma branch: `git checkout -b feature/sua-feature`
-3. Commit suas mudanças: `git commit -m 'Adiciona nova feature'`
-4. Push para a branch: `git push origin feature/sua-feature`
-5. Abra um Pull Request
+```
+lib/
+├── main.dart                       tela principal, tema e navegação
+├── models/
+│   ├── weather_model.dart          clima atual, previsão e resumo diário
+│   └── app_exception.dart          erros tipados (rede, chave, cidade não achada)
+├── services/
+│   ├── weather_service.dart        cliente da OpenWeatherMap
+│   ├── city_service.dart           cidades favoritas
+│   └── connectivity_service.dart   checagem de conexão antes da requisição
+├── widgets/
+│   ├── custom_drawer.dart          menu lateral e gerência de cidades
+│   ├── forecast_widget.dart        previsão dos próximos dias
+│   ├── info_cards.dart             cartões de vento, umidade, sol
+│   ├── weather_loading_widget.dart carregamento com shimmer
+│   └── error_widget.dart           estados de erro
+├── utils/
+│   ├── formatters.dart             temperatura, datas e textos
+│   └── weather_assets.dart         código da API → animação em assets/images
+└── db/
+    └── database_helper.dart        cache SQLite
+```
 
-## 📄 Licença
+As animações de clima ficam em `assets/images`, uma para cada condição, com versões
+de dia e de noite.
 
-Este projeto está licenciado sob a **MIT License**. 
+## Plataformas
 
-<div align="center">
+O projeto tem as pastas de Android, iOS, Windows, Linux, macOS e web. O
+`sqflite_common_ffi` está incluído para o cache funcionar também no desktop.
 
-**Weather Explorer** - *Sua previsão do tempo, reimaginada!* 
+## Licença
 
-Desenvolvido com ❤️ por [RIGOandre](https://github.com/RIGOandre)
+MIT — veja [LICENSE](LICENSE).
 
-</div>
+Feito por [RIGOandre](https://github.com/RIGOandre).
